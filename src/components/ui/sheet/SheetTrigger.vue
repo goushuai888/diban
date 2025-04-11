@@ -3,7 +3,7 @@ import { inject } from 'vue'
 
 const sheet = inject('sheet', {
   open: { value: false },
-  onOpenChange: (value: boolean) => {},
+  onOpenChange: (value: boolean) => { value },
 })
 
 const handleClick = () => {

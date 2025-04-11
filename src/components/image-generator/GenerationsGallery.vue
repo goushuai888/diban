@@ -5,8 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Download, Search, Trash2 } from "lucide-vue-next";
+
+import { Download, Search } from "lucide-vue-next";
 import {
   Select,
   SelectContent,

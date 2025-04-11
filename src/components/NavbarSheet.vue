@@ -16,6 +16,9 @@ const props = defineProps<{
   }>;
 }>();
 
+// 使用props中的navItems
+const { navItems } = props;
+
 // 当前路由信息
 const route = useRoute();
 const currentPath = computed(() => route.path);

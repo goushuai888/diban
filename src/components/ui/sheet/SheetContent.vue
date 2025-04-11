@@ -18,7 +18,7 @@ const props = withDefaults(
 
 const sheet = inject('sheet', {
   open: { value: false },
-  onOpenChange: (value: boolean) => {},
+  onOpenChange: (value: boolean) => { value },
 })
 
 const sheetVariants = cva(

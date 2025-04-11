@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
 import type { Generation } from "@/types/flux";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -15,7 +15,7 @@ import { Download, Search, Trash2, X, Calendar, Image as ImageIcon, Clock, User,
 import { formatDistanceToNow, format } from "date-fns";
 import { zhCN } from 'date-fns/locale';
 import { fetchGenerations, deleteGeneration, clearAllGenerations } from "@/services/generation-history";
-import { isCurrentUserRecord } from "@/lib/supabase";
+// import { isCurrentUserRecord } from "@/lib/supabase";
 
 // 状态
 const generations = ref<Generation[]>([]);

@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import {
@@ -19,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from 'vue-sonner';
-import { Save, Settings, Check, Trash2 } from "lucide-vue-next";
+import { Save, Settings, Trash2 } from "lucide-vue-next";
 
 const props = defineProps<{
   modelId: string;
