@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search } from "lucide-vue-next";
 import { modelCategories } from '@/router/models';
 
@@ -14,8 +15,8 @@ const activeTab = ref('all');
 // 过滤模型
 const filteredModels = (categoryModels: any[]) => {
   if (!searchQuery.value) return categoryModels;
-  
-  return categoryModels.filter(model => 
+
+  return categoryModels.filter(model =>
     model.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
     model.id.toLowerCase().includes(searchQuery.value.toLowerCase())
   );
@@ -23,13 +24,14 @@ const filteredModels = (categoryModels: any[]) => {
 </script>
 
 <template>
-  <main class="container mx-auto py-8 px-4">
+  <ScrollArea class="h-[calc(100vh-4rem)] w-full">
+    <main class="container mx-auto py-8 px-4">
     <div class="flex flex-col items-center space-y-8">
       <h1 class="text-4xl font-bold text-center">FAL.AI 模型库</h1>
       <p class="text-muted-foreground text-center max-w-2xl">
         浏览所有可用的AI模型，选择最适合您需求的模型
       </p>
-      
+
       <!-- 搜索栏 -->
       <div class="w-full max-w-md relative">
         <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -39,14 +41,14 @@ const filteredModels = (categoryModels: any[]) => {
           class="pl-10"
         />
       </div>
-      
+
       <!-- 模型分类标签页 -->
       <Tabs v-model="activeTab" class="w-full max-w-4xl">
         <TabsList class="grid w-full grid-cols-2">
           <TabsTrigger value="all">所有模型</TabsTrigger>
           <TabsTrigger value="flux">Flux 模型</TabsTrigger>
         </TabsList>
-        
+
         <!-- 所有模型 -->
         <TabsContent value="all" class="mt-6">
           <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
@@ -70,7 +72,7 @@ const filteredModels = (categoryModels: any[]) => {
             </RouterLink>
           </div>
         </TabsContent>
-        
+
         <!-- Flux 模型 -->
         <TabsContent value="flux" class="mt-6">
           <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
@@ -97,4 +99,5 @@ const filteredModels = (categoryModels: any[]) => {
       </Tabs>
     </div>
   </main>
+  </ScrollArea>
 </template>

@@ -2,6 +2,7 @@
 import { RouterLink } from 'vue-router';
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { modelCategories } from "@/router/models";
 import { ArrowRight, Sparkles, Zap, Image } from "lucide-vue-next";
 
@@ -10,7 +11,8 @@ const featuredModels = modelCategories.flatMap(cat => cat.models).slice(0, 3);
 </script>
 
 <template>
-  <main class="container mx-auto py-8 px-4">
+  <ScrollArea class="h-[calc(100vh-4rem)] w-full">
+    <main class="container mx-auto py-8 px-4">
     <div class="flex flex-col items-center space-y-12">
       <!-- 英雄区域 -->
       <div class="w-full max-w-5xl text-center py-12">
@@ -98,4 +100,5 @@ const featuredModels = modelCategories.flatMap(cat => cat.models).slice(0, 3);
       </div>
     </div>
   </main>
+  </ScrollArea>
 </template>

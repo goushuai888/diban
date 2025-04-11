@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, Search, Trash2, X, Calendar, Image as ImageIcon, Clock, User, Users } from "lucide-vue-next";
+import { Download, Search, Trash2, X, Calendar, Image as ImageIcon, Clock, User, Users, Check } from "lucide-vue-next";
 import { formatDistanceToNow, format } from "date-fns";
 import { zhCN } from 'date-fns/locale';
 import { fetchGenerations, deleteGeneration, clearAllGenerations } from "@/services/generation-history";
@@ -207,8 +207,9 @@ const clearAllHistory = async () => {
 </script>
 
 <template>
-  <div class="container mx-auto py-8 px-4">
-    <div class="flex flex-col space-y-6">
+  <ScrollArea class="h-[calc(100vh-4rem)] w-full">
+    <div class="container mx-auto py-8 px-4">
+      <div class="flex flex-col space-y-6">
       <!-- 标题和操作栏 -->
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 class="text-3xl font-bold">生成历史</h1>
@@ -448,7 +449,7 @@ const clearAllHistory = async () => {
                   <h3 class="font-medium line-clamp-2">{{ generation.prompt }}</h3>
 
                   <div class="mt-2 flex flex-wrap gap-2">
-                    <Badge v-if="generation.isCurrentUser" variant="primary" class="flex items-center gap-1">
+                    <Badge v-if="generation.isCurrentUser" variant="default" class="flex items-center gap-1 bg-primary text-primary-foreground">
                       <User class="h-3 w-3" />
                       我的
                     </Badge>
@@ -579,6 +580,7 @@ const clearAllHistory = async () => {
           </div>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
-  </div>
+  </ScrollArea>
 </template>

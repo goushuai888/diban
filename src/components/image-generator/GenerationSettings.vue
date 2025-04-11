@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, watch } from 'vue';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,6 +34,43 @@ const updatePrompt = (value: string) => {
 const loadSettings = (settings: { parameters: Record<string, any>, prompt: string }) => {
   emit('loadSettings', settings);
 };
+
+// 初始化所有参数
+const initializeAllParameters = () => {
+  // 检查所有参数是否有值
+  props.model.inputSchema.forEach(param => {
+    if (props.parameters[param.key] === undefined && param.default !== undefined) {
+      updateParameter(param.key, param.default);
+      console.log(`设置参数 ${param.key} 的初始值为 ${param.default}`);
+    }
+  });
+
+  // 特别处理枚举参数，确保它们有正确的值
+  enumParameters.value.forEach(param => {
+    // 如果参数值不在选项中，重置为默认值
+    const currentValue = props.parameters[param.key];
+    if (currentValue !== undefined && param.options && !param.options.includes(currentValue)) {
+      updateParameter(param.key, param.default);
+      console.log(`重置参数 ${param.key} 的值为 ${param.default}`);
+    }
+  });
+};
+
+// 组件挂载后确保所有参数都有初始值
+onMounted(() => {
+  // 延迟初始化，确保组件已完全渲染
+  setTimeout(() => {
+    initializeAllParameters();
+  }, 100);
+});
+
+// 监听模型变化，重新设置参数
+watch(() => props.model.id, () => {
+  // 延迟初始化，确保模型数据已更新
+  setTimeout(() => {
+    initializeAllParameters();
+  }, 100);
+});
 
 const updateParameter = (key: string, value: any) => {
   const newParameters = { ...props.parameters, [key]: value };
@@ -156,8 +193,8 @@ const updateLoraScale = (param: ModelParameter, index: number, value: number) =>
         <div v-for="param in enumParameters" :key="param.key" class="space-y-1">
           <Label :for="param.key" class="text-sm">{{ formatParamName(param.key) }}</Label>
           <Select
-            :value="getParamValue(param)"
-            @update:modelValue="(newValue: any) => updateParameter(param.key, newValue)"
+            :model-value="getParamValue(param)"
+            @update:model-value="(newValue: any) => updateParameter(param.key, newValue)"
           >
             <SelectTrigger :id="param.key">
               <SelectValue placeholder="选择选项" />

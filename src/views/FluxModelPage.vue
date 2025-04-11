@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ImageGenerator from "@/components/ImageGenerator.vue";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { getModelById } from "@/router/models";
 import type { Model } from "@/types/flux";
 
@@ -36,7 +37,8 @@ const model = computed<Model | null>(() => {
 </script>
 
 <template>
-  <main v-if="model" class="container mx-auto py-8 px-4">
+  <ScrollArea class="h-[calc(100vh-4rem)] w-full">
+    <main v-if="model" class="container mx-auto py-8 px-4">
     <div class="flex flex-col items-center space-y-8">
       <h1 class="text-4xl font-bold text-center">{{ model.name }}</h1>
       <p class="text-muted-foreground text-center max-w-2xl">
@@ -45,4 +47,5 @@ const model = computed<Model | null>(() => {
       <ImageGenerator :model="model" />
     </div>
   </main>
+  </ScrollArea>
 </template>

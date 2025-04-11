@@ -51,6 +51,13 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+html, body {
+  height: 100%;
+  margin: 0; /* 确保没有外边距影响 */
+  padding: 0; /* 确保没有内边距影响 */
+  overflow: hidden; /* 阻止 html 和 body 滚动，让内部元素负责滚动 */
+}
+
 body {
   margin: 0;
   display: flex;

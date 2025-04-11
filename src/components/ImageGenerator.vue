@@ -7,9 +7,7 @@ import { generateImage } from "@/services/generate-image";
 import { saveGeneration } from "@/services/generation-history";
 import { toast } from 'vue-sonner';
 import { v4 as uuidv4 } from 'uuid';
-import Alert from "@/components/ui/alert.vue";
-import AlertTitle from "@/components/ui/alert-title.vue";
-import AlertDescription from "@/components/ui/alert-description.vue";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { ExternalLink, AlertTriangle } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { currentUserId } from "@/lib/supabase";
@@ -19,7 +17,7 @@ const props = defineProps<{
 }>();
 
 // 初始化参数，使用模型架构中的默认值和自定义默认值
-const parameters = ref<Record<string, any>>(() => {
+const initParameters = (): Record<string, any> => {
   // 首先从模型架构中获取默认值
   const defaultParams = Object.fromEntries(
     props.model.inputSchema
@@ -27,19 +25,63 @@ const parameters = ref<Record<string, any>>(() => {
       .map(param => [param.key, param.default])
   );
 
-  // 自定义默认值
-  const customDefaults: Record<string, any> = {
-    // 如果模型支持这些参数，设置默认值
-    image_size: hasParameter('image_size') ? 'portrait_4_3' : undefined,
-    output_format: hasParameter('output_format') ? 'png' : undefined,
-    num_images: hasParameter('num_images') ? 1 : undefined,
-    guidance_scale: hasParameter('guidance_scale') ? 7.5 : undefined,
-    num_inference_steps: hasParameter('num_inference_steps') ? 30 : undefined,
-  };
+  // 根据模型ID设置不同的默认值
+  let customDefaults: Record<string, any> = {};
+
+  // 通用默认值
+  if (hasParameter('output_format')) {
+    customDefaults.output_format = 'png';
+  }
+  if (hasParameter('num_images')) {
+    customDefaults.num_images = 1;
+  }
+
+  // 根据模型ID设置特定默认值
+  if (props.model.id === 'fal-ai/flux-pro/v1.1') {
+    if (hasParameter('image_size')) {
+      customDefaults.image_size = 'landscape_16_9';
+    }
+    if (hasParameter('enable_safety_checker')) {
+      customDefaults.enable_safety_checker = false;
+    }
+    if (hasParameter('safety_tolerance')) {
+      customDefaults.safety_tolerance = '6';
+    }
+  }
+  else if (props.model.id === 'fal-ai/flux-pro/v1.1-ultra') {
+    if (hasParameter('aspect_ratio')) {
+      customDefaults.aspect_ratio = '16:9';
+    }
+    if (hasParameter('enable_safety_checker')) {
+      customDefaults.enable_safety_checker = false;
+    }
+    if (hasParameter('safety_tolerance')) {
+      customDefaults.safety_tolerance = '6';
+    }
+  }
+  else if (props.model.id === 'fal-ai/flux-lora') {
+    if (hasParameter('image_size')) {
+      customDefaults.image_size = 'landscape_16_9';
+    }
+    if (hasParameter('guidance_scale')) {
+      customDefaults.guidance_scale = 7.0;
+    }
+    if (hasParameter('num_inference_steps')) {
+      customDefaults.num_inference_steps = 40;
+    }
+    if (hasParameter('enable_safety_checker')) {
+      customDefaults.enable_safety_checker = false;
+    }
+    if (hasParameter('loras')) {
+      customDefaults.loras = [];
+    }
+  }
 
   // 合并默认值，优先使用自定义默认值
-  return { ...defaultParams, ...Object.fromEntries(Object.entries(customDefaults).filter(([_, v]) => v !== undefined)) };
-});
+  return { ...defaultParams, ...customDefaults };
+};
+
+const parameters = ref<Record<string, any>>(initParameters());
 
 // 检查模型是否支持特定参数
 function hasParameter(key: string): boolean {
@@ -65,8 +107,17 @@ const openBillingPage = () => {
 
 // 处理加载默认设置
 const handleLoadSettings = (settings: { parameters: Record<string, any>, prompt: string }) => {
-  parameters.value = settings.parameters;
-  prompt.value = settings.prompt;
+  // 合并参数，确保所有必要的参数都存在
+  const baseParams = initParameters();
+  parameters.value = { ...baseParams, ...settings.parameters };
+  prompt.value = settings.prompt || '';
+
+  // 如果是LoRA模型但没有loras参数，初始化为空数组
+  if (props.model.id === 'fal-ai/flux-lora' && !parameters.value.loras) {
+    parameters.value.loras = [];
+  }
+
+  console.log('已加载设置:', { parameters: parameters.value, prompt: prompt.value });
 };
 
 async function handleGenerate() {
