@@ -168,20 +168,18 @@ const previousImage = () => {
     </div>
 
     <!-- Lightbox Dialog -->
-    <!-- 注意：这里需要实现一个Lightbox组件，或者使用Dialog组件来实现类似功能 -->
-    <!-- 由于ShadcnUI-Vue可能没有直接提供Lightbox组件，这里只是一个示例框架 -->
     <Dialog v-model:open="lightboxOpen" @update:open="closeLightbox">
-      <DialogContent class="max-w-screen-lg w-full h-[90vh] p-0 gap-0">
-        <div class="relative h-full flex flex-col">
+      <DialogContent class="max-w-screen-lg w-full h-[90vh] p-0 gap-0 overflow-hidden">
+        <div class="relative h-full flex flex-col overflow-hidden">
           <!-- Top Bar -->
           <div class="absolute top-0 left-0 right-0 z-50 flex justify-between items-center p-4 bg-gradient-to-b from-black/50 to-transparent">
             <div class="flex items-center gap-4">
               <div v-if="currentGeneration" class="flex items-center gap-2">
                 <Switch
-                  id="nsfw"
+                  id="nsfw-gallery"
                   v-model="isNSFW"
                 />
-                <Label for="nsfw" class="text-white">NSFW</Label>
+                <Label for="nsfw-gallery" class="text-white">NSFW</Label>
               </div>
             </div>
             <Button variant="ghost" size="icon" class="text-white" @click="closeLightbox">
@@ -195,7 +193,7 @@ const previousImage = () => {
               v-if="currentGeneration && currentGeneration.output.images[currentImageIndex]"
               :src="currentGeneration.output.images[currentImageIndex].url"
               :alt="currentGeneration.prompt"
-              class="max-h-full max-w-full object-contain"
+              class="max-h-full max-w-full object-contain p-4"
             />
           </div>
 

@@ -498,7 +498,7 @@ const clearAllHistory = async () => {
 
       <!-- Lightbox Dialog -->
       <Dialog v-model:open="lightboxOpen" @update:open="closeLightbox">
-        <DialogContent class="max-w-screen-lg w-full h-[90vh] p-0 gap-0 overflow-hidden mx-auto my-0 inset-0">
+        <DialogContent class="max-w-screen-lg w-full h-[90vh] p-0 gap-0 overflow-hidden">
           <div class="relative h-full flex flex-col overflow-hidden">
             <!-- Top Bar -->
             <div class="absolute top-0 left-0 right-0 z-50 flex justify-between items-center p-4 bg-gradient-to-b from-black/50 to-transparent">
@@ -522,7 +522,7 @@ const clearAllHistory = async () => {
                 v-if="currentGeneration && currentGeneration.output.images[currentImageIndex]"
                 :src="currentGeneration.output.images[currentImageIndex].url"
                 :alt="currentGeneration.prompt"
-                class="max-h-[calc(100%-120px)] max-w-full object-contain"
+                class="max-h-full max-w-full object-contain p-4"
               />
             </div>
 
