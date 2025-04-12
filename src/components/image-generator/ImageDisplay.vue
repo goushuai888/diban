@@ -2,10 +2,12 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-vue-next";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { Image } from "@/types/flux";
 
 defineProps<{
   result: Image | null;
+  isGenerating: boolean;
 }>();
 
 const openImage = (url: string) => {
@@ -31,14 +33,26 @@ const openImage = (url: string) => {
       </Button>
     </CardHeader>
     <CardContent>
+      <!-- 生成中的骨架屏 -->
+      <div v-if="isGenerating" class="relative h-[300px] rounded-lg overflow-hidden">
+        <Skeleton class="absolute inset-0 h-full w-full" />
+        <div class="absolute inset-0 flex items-center justify-center">
+          <div class="text-center">
+            <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite] mb-2"></div>
+            <p class="text-muted-foreground">正在生成图像...</p>
+          </div>
+        </div>
+      </div>
+      <!-- 已生成的图像 -->
       <img
-        v-if="result"
+        v-else-if="result"
         :src="result.url"
         alt="生成的图像"
         :width="result.width"
         :height="result.height"
         class="rounded-lg w-full object-cover"
       />
+      <!-- 未生成状态 -->
       <div v-else class="flex items-center justify-center h-[300px] bg-muted rounded-lg">
         <p class="text-muted-foreground">尚未生成图像</p>
       </div>

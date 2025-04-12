@@ -6,10 +6,11 @@ import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Eye, EyeOff, Check, Key, Plus, Trash2, RefreshCw, AlertCircle, Copy } from 'lucide-vue-next';
+import { Eye, EyeOff, Check, Key, Plus, Trash2, RefreshCw, AlertCircle, ChevronDown, ChevronRight } from 'lucide-vue-next';
 import { toast } from 'vue-sonner';
 import { fal } from "@fal-ai/client";
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // 常量
 const API_KEYS_STORAGE_KEY = 'fal-ai-api-keys';
@@ -24,6 +25,7 @@ interface ApiKeyInfo {
   isSystem?: boolean;
   balance?: number;
   lastChecked?: number;
+  group?: string;
 }
 
 // 状态
@@ -37,6 +39,8 @@ const isDialogOpen = ref(false);
 const isSheetOpen = ref(false);
 const isLoading = ref(false);
 const activeTab = ref('keys');
+const selectedGroup = ref('all'); // 当前选择的分组
+const expandedGroups = ref<Set<string>>(new Set()); // 展开的分组
 
 // 监听 activeTab 变化，当切换到添加密钥标签时重置表单
 watch(activeTab, (newValue) => {
@@ -71,20 +75,42 @@ function maskKey(key: string): string {
   return key.substring(0, 4) + '****' + key.substring(key.length - 4);
 }
 
-function copyToClipboard(text: string) {
-  navigator.clipboard.writeText(text).then(() => {
-    toast.success('已复制到剪贴板');
-  }).catch(() => {
-    toast.error('复制失败');
-  });
-}
-
 // 处理Sheet打开状态变化
 function handleSheetOpenChange(open: boolean) {
   if (open) {
     // 当Sheet打开时，切换到密钥管理标签页
     activeTab.value = 'keys';
   }
+}
+
+// 计算属性 - 获取所有分组
+const groups = computed(() => {
+  const groupSet = new Set<string>();
+  apiKeys.value.forEach(key => {
+    if (key.group) {
+      groupSet.add(key.group);
+    }
+  });
+  return Array.from(groupSet);
+});
+
+// 按分组过滤密钥
+const filteredKeys = computed(() => {
+  if (selectedGroup.value === 'all') {
+    return apiKeys.value;
+  }
+  return apiKeys.value.filter(key => key.group === selectedGroup.value);
+});
+
+// 切换分组展开状态
+function toggleGroupExpanded(group: string) {
+  const newExpandedGroups = new Set(expandedGroups.value);
+  if (newExpandedGroups.has(group)) {
+    newExpandedGroups.delete(group);
+  } else {
+    newExpandedGroups.add(group);
+  }
+  expandedGroups.value = newExpandedGroups;
 }
 
 // 加载API密钥
@@ -103,7 +129,7 @@ onMounted(async () => {
     }
   }
 
-  // 加载系统预设密钥
+  // 从环境变量加载系统密钥
   if (CONFIG_FILE_PATH) {
     const systemKeys = CONFIG_FILE_PATH.split(',').map((key: string) => key.trim()).filter(Boolean);
 
@@ -114,13 +140,23 @@ onMounted(async () => {
         keys.push({
           key: systemKey,
           name: `系统密钥 ${keys.length + 1}`,
-          isSystem: true
+          isSystem: true,
+          group: '默认组'
         });
       }
     }
   }
 
   apiKeys.value = keys;
+
+  // 默认展开所有分组
+  const groupSet = new Set<string>();
+  keys.forEach(key => {
+    if (key.group) {
+      groupSet.add(key.group);
+    }
+  });
+  expandedGroups.value = groupSet;
 
   // 设置活动密钥
   if (storedActiveIndex && parseInt(storedActiveIndex) < keys.length) {
@@ -137,6 +173,9 @@ onMounted(async () => {
   }
 });
 
+// 新密钥的分组
+const newKeyGroup = ref('');
+
 // 添加新密钥
 const addNewKey = () => {
   if (!newKeyValue.value.trim()) {
@@ -146,6 +185,7 @@ const addNewKey = () => {
 
   const trimmedKey = newKeyValue.value.trim();
   const name = newKeyName.value.trim() || `密钥 ${apiKeys.value.length + 1}`;
+  const group = newKeyGroup.value.trim() || '默认组';
 
   // 检查是否已存在
   const exists = apiKeys.value.some(k => k.key === trimmedKey);
@@ -155,7 +195,7 @@ const addNewKey = () => {
   }
 
   // 添加新密钥
-  const newKeys = [...apiKeys.value, { key: trimmedKey, name }];
+  const newKeys = [...apiKeys.value, { key: trimmedKey, name, group }];
   apiKeys.value = newKeys;
 
   // 如果是第一个密钥，设为活动密钥
@@ -168,9 +208,15 @@ const addNewKey = () => {
   localStorage.setItem(API_KEYS_STORAGE_KEY, JSON.stringify(newKeys));
   localStorage.setItem(ACTIVE_KEY_INDEX_STORAGE_KEY, activeKeyIndex.value.toString());
 
+  // 展开新密钥的分组
+  if (group && !expandedGroups.value.has(group)) {
+    expandedGroups.value.add(group);
+  }
+
   // 重置表单
   newKeyName.value = '';
   newKeyValue.value = '';
+  newKeyGroup.value = '';
   isVisible.value = false;
 
   toast.success('API密钥已成功添加');
@@ -353,68 +399,175 @@ const isKeyVisible = (index: number): boolean => {
 
         <!-- 密钥管理标签页 -->
         <div v-if="activeTab === 'keys'" class="space-y-4 py-4 max-h-[300px] overflow-y-auto pr-2">
+          <!-- 分组选择器 -->
+          <div class="mb-4">
+            <Select v-model="selectedGroup">
+              <SelectTrigger class="w-full">
+                <SelectValue placeholder="选择分组" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">所有分组</SelectItem>
+                <SelectItem v-for="group in groups" :key="group" :value="group">{{ group }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div v-if="hasKeys" class="space-y-4">
-            <Card v-for="(key, index) in apiKeys" :key="index" :class="{'border-primary': index === activeKeyIndex}" class="mb-2 !p-0 !py-0">
-              <div class="p-3 flex items-center justify-between">
-                <div class="flex items-center gap-2 flex-1 min-w-0">
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-1 flex-wrap">
-                      <span class="font-medium truncate">{{ key.name }}</span>
-                      <Badge v-if="key.isSystem" variant="outline" class="text-xs">系统</Badge>
-                      <Badge v-if="index === activeKeyIndex" variant="default" class="text-xs">活动</Badge>
-                      <Badge v-if="key.balance !== undefined" variant="secondary" class="text-xs">余额: {{ formatBalance(key.balance) }}</Badge>
-                    </div>
-                    <div class="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                      <Button
-                        v-if="!key.isSystem"
-                        variant="ghost"
-                        size="icon"
-                        class="h-4 w-4 p-0 flex-shrink-0"
-                        @click="toggleKeyVisibility(index)"
-                        :title="isKeyVisible(index) ? '隐藏API密钥' : '显示API密钥'"
-                      >
-                        <EyeOff v-if="isKeyVisible(index)" class="h-3 w-3" />
-                        <Eye v-else class="h-3 w-3" />
-                      </Button>
-                      <span class="break-all max-w-[250px] inline-block">{{ key.isSystem ? maskKey(key.key) : (isKeyVisible(index) ? key.key : maskKey(key.key)) }}</span>
-                    </div>
-                  </div>
+            <!-- 分组显示 -->
+            <template v-if="selectedGroup === 'all'">
+              <div v-for="group in groups" :key="group" class="mb-4">
+                <div
+                  class="flex items-center gap-2 mb-2 cursor-pointer hover:text-primary transition-colors"
+                  @click="toggleGroupExpanded(group)"
+                >
+                  <ChevronDown v-if="expandedGroups.has(group)" class="h-4 w-4" />
+                  <ChevronRight v-else class="h-4 w-4" />
+                  <h3 class="font-medium">{{ group }}</h3>
+                  <Badge variant="outline" class="ml-2">
+                    {{ apiKeys.filter(k => k.group === group).length }}
+                  </Badge>
                 </div>
-                <div class="flex gap-1">
-                  <Button
-                    v-if="index !== activeKeyIndex"
-                    variant="outline"
-                    size="icon"
-                    class="h-7 w-7"
-                    @click="setActiveKey(index)"
-                    title="激活"
+
+                <div v-if="expandedGroups.has(group)" class="space-y-2 pl-2">
+                  <Card
+                    v-for="(key, index) in apiKeys.filter(k => k.group === group)"
+                    :key="index"
+                    :class="{'border-primary': index === activeKeyIndex}"
+                    class="mb-2 !p-0 !py-0"
                   >
-                    <Check class="h-3 w-3" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    class="h-7 w-7"
-                    @click="checkBalance(index)"
-                    :disabled="isLoading"
-                    title="查询余额"
-                  >
-                    <RefreshCw v-if="isLoading" class="h-3 w-3 animate-spin" />
-                    <RefreshCw v-else class="h-3 w-3" />
-                  </Button>
-                  <Button
-                    v-if="!key.isSystem"
-                    variant="destructive"
-                    size="icon"
-                    class="h-7 w-7"
-                    @click="deleteKey(index)"
-                    title="删除"
-                  >
-                    <Trash2 class="h-3 w-3" />
-                  </Button>
+                    <div class="p-3 flex items-center justify-between">
+                      <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <div class="flex-1 min-w-0">
+                          <div class="flex items-center gap-1 flex-wrap">
+                            <span class="font-medium truncate">{{ key.name }}</span>
+                            <Badge v-if="key.isSystem" variant="outline" class="text-xs">系统</Badge>
+                            <Badge v-if="index === activeKeyIndex" variant="default" class="text-xs">活动</Badge>
+                            <Badge v-if="key.balance !== undefined" variant="secondary" class="text-xs">余额: {{ formatBalance(key.balance) }}</Badge>
+                          </div>
+                          <div class="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                            <Button
+                              v-if="!key.isSystem"
+                              variant="ghost"
+                              size="icon"
+                              class="h-4 w-4 p-0 flex-shrink-0"
+                              @click="toggleKeyVisibility(index)"
+                              :title="isKeyVisible(index) ? '隐藏API密钥' : '显示API密钥'"
+                            >
+                              <EyeOff v-if="isKeyVisible(index)" class="h-3 w-3" />
+                              <Eye v-else class="h-3 w-3" />
+                            </Button>
+                            <span class="break-all max-w-[250px] inline-block">{{ key.isSystem ? maskKey(key.key) : (isKeyVisible(index) ? key.key : maskKey(key.key)) }}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="flex gap-1">
+                        <Button
+                          v-if="index !== activeKeyIndex"
+                          variant="outline"
+                          size="icon"
+                          class="h-7 w-7"
+                          @click="setActiveKey(index)"
+                          title="激活"
+                        >
+                          <Check class="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          class="h-7 w-7"
+                          @click="checkBalance(index)"
+                          :disabled="isLoading"
+                          title="查询余额"
+                        >
+                          <RefreshCw v-if="isLoading" class="h-3 w-3 animate-spin" />
+                          <RefreshCw v-else class="h-3 w-3" />
+                        </Button>
+                        <Button
+                          v-if="!key.isSystem"
+                          variant="destructive"
+                          size="icon"
+                          class="h-7 w-7"
+                          @click="deleteKey(index)"
+                          title="删除"
+                        >
+                          <Trash2 class="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
                 </div>
               </div>
-            </Card>
+            </template>
+
+            <!-- 当选择特定分组时显示 -->
+            <template v-else>
+              <Card
+                v-for="(key, index) in filteredKeys"
+                :key="index"
+                :class="{'border-primary': index === activeKeyIndex}"
+                class="mb-2 !p-0 !py-0"
+              >
+                <div class="p-3 flex items-center justify-between">
+                  <div class="flex items-center gap-2 flex-1 min-w-0">
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-1 flex-wrap">
+                        <span class="font-medium truncate">{{ key.name }}</span>
+                        <Badge v-if="key.isSystem" variant="outline" class="text-xs">系统</Badge>
+                        <Badge v-if="index === activeKeyIndex" variant="default" class="text-xs">活动</Badge>
+                        <Badge v-if="key.balance !== undefined" variant="secondary" class="text-xs">余额: {{ formatBalance(key.balance) }}</Badge>
+                      </div>
+                      <div class="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                        <Button
+                          v-if="!key.isSystem"
+                          variant="ghost"
+                          size="icon"
+                          class="h-4 w-4 p-0 flex-shrink-0"
+                          @click="toggleKeyVisibility(index)"
+                          :title="isKeyVisible(index) ? '隐藏API密钥' : '显示API密钥'"
+                        >
+                          <EyeOff v-if="isKeyVisible(index)" class="h-3 w-3" />
+                          <Eye v-else class="h-3 w-3" />
+                        </Button>
+                        <span class="break-all max-w-[250px] inline-block">{{ key.isSystem ? maskKey(key.key) : (isKeyVisible(index) ? key.key : maskKey(key.key)) }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex gap-1">
+                    <Button
+                      v-if="index !== activeKeyIndex"
+                      variant="outline"
+                      size="icon"
+                      class="h-7 w-7"
+                      @click="setActiveKey(index)"
+                      title="激活"
+                    >
+                      <Check class="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      class="h-7 w-7"
+                      @click="checkBalance(index)"
+                      :disabled="isLoading"
+                      title="查询余额"
+                    >
+                      <RefreshCw v-if="isLoading" class="h-3 w-3 animate-spin" />
+                      <RefreshCw v-else class="h-3 w-3" />
+                    </Button>
+                    <Button
+                      v-if="!key.isSystem"
+                      variant="destructive"
+                      size="icon"
+                      class="h-7 w-7"
+                      @click="deleteKey(index)"
+                      title="删除"
+                    >
+                      <Trash2 class="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            </template>
           </div>
 
           <div v-else class="text-center py-4">
@@ -459,6 +612,24 @@ const isKeyVisible = (index: number): boolean => {
               </div>
               <p class="text-sm text-muted-foreground mt-1">
                 您可以在 <a href="https://fal.ai/dashboard/keys" target="_blank" class="text-primary hover:underline">FAL.AI 控制面板</a> 中获取API密钥
+              </p>
+            </div>
+
+            <div class="space-y-2">
+              <label for="key-group" class="text-sm font-medium">分组</label>
+              <div class="relative">
+                <Input
+                  id="key-group"
+                  v-model="newKeyGroup"
+                  placeholder="输入分组名称或选择现有分组"
+                  list="group-options"
+                />
+                <datalist id="group-options">
+                  <option v-for="group in groups" :key="group" :value="group">{{ group }}</option>
+                </datalist>
+              </div>
+              <p class="text-sm text-muted-foreground mt-1">
+                分组可以帮助您更好地组织和管理大量密钥
               </p>
             </div>
           </div>
@@ -507,77 +678,175 @@ const isKeyVisible = (index: number): boolean => {
 
         <!-- 密钥管理标签页 -->
         <div v-if="activeTab === 'keys'" class="space-y-2 py-2 flex-1 overflow-y-auto pr-2 min-h-0 h-[calc(90vh-180px)]" style="overflow-y: auto !important;">
+          <!-- 分组选择器 -->
+          <div class="mb-4">
+            <Select v-model="selectedGroup">
+              <SelectTrigger class="w-full">
+                <SelectValue placeholder="选择分组" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">所有分组</SelectItem>
+                <SelectItem v-for="group in groups" :key="group" :value="group">{{ group }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div v-if="hasKeys" class="space-y-2">
-            <Card v-for="(key, index) in apiKeys" :key="index" :class="{'border-primary': index === activeKeyIndex}" class="mb-2 !p-0 !py-0">
-              <div class="p-3 flex items-center justify-between">
-                <div class="flex items-center gap-2 flex-1 min-w-0">
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-1 flex-wrap">
-                      <span class="font-medium truncate">{{ key.name }}</span>
-                      <Badge v-if="key.isSystem" variant="outline" class="text-xs">系统</Badge>
-                      <Badge v-if="index === activeKeyIndex" variant="default" class="text-xs">活动</Badge>
-                      <Badge v-if="key.balance !== undefined" variant="secondary" class="text-xs">余额: {{ formatBalance(key.balance) }}</Badge>
-                    </div>
-                    <div class="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                      <Button
-                        v-if="!key.isSystem"
-                        variant="ghost"
-                        size="icon"
-                        class="h-4 w-4 p-0 flex-shrink-0"
-                        @click="toggleKeyVisibility(index)"
-                        :title="isKeyVisible(index) ? '隐藏API密钥' : '显示API密钥'"
-                      >
-                        <EyeOff v-if="isKeyVisible(index)" class="h-3 w-3" />
-                        <Eye v-else class="h-3 w-3" />
-                      </Button>
-                      <span class="break-all max-w-[250px] inline-block">{{ key.isSystem ? maskKey(key.key) : (isKeyVisible(index) ? key.key : maskKey(key.key)) }}</span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        class="h-4 w-4 p-0 ml-1 flex-shrink-0"
-                        @click="copyToClipboard(key.key)"
-                        title="复制API密钥"
-                      >
-                        <Copy class="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
+            <!-- 分组显示 -->
+            <template v-if="selectedGroup === 'all'">
+              <div v-for="group in groups" :key="group" class="mb-4">
+                <div
+                  class="flex items-center gap-2 mb-2 cursor-pointer hover:text-primary transition-colors"
+                  @click="toggleGroupExpanded(group)"
+                >
+                  <ChevronDown v-if="expandedGroups.has(group)" class="h-4 w-4" />
+                  <ChevronRight v-else class="h-4 w-4" />
+                  <h3 class="font-medium">{{ group }}</h3>
+                  <Badge variant="outline" class="ml-2">
+                    {{ apiKeys.filter(k => k.group === group).length }}
+                  </Badge>
                 </div>
-                <div class="flex gap-1">
-                  <Button
-                    v-if="index !== activeKeyIndex"
-                    variant="outline"
-                    size="icon"
-                    class="h-7 w-7"
-                    @click="setActiveKey(index)"
-                    title="激活"
+
+                <div v-if="expandedGroups.has(group)" class="space-y-2 pl-2">
+                  <Card
+                    v-for="(key, index) in apiKeys.filter(k => k.group === group)"
+                    :key="index"
+                    :class="{'border-primary': index === activeKeyIndex}"
+                    class="mb-2 !p-0 !py-0"
                   >
-                    <Check class="h-3 w-3" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    class="h-7 w-7"
-                    @click="checkBalance(index)"
-                    :disabled="isLoading"
-                    title="查询余额"
-                  >
-                    <RefreshCw v-if="isLoading" class="h-3 w-3 animate-spin" />
-                    <RefreshCw v-else class="h-3 w-3" />
-                  </Button>
-                  <Button
-                    v-if="!key.isSystem"
-                    variant="destructive"
-                    size="icon"
-                    class="h-7 w-7"
-                    @click="deleteKey(index)"
-                    title="删除"
-                  >
-                    <Trash2 class="h-3 w-3" />
-                  </Button>
+                    <div class="p-3 flex items-center justify-between">
+                      <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <div class="flex-1 min-w-0">
+                          <div class="flex items-center gap-1 flex-wrap">
+                            <span class="font-medium truncate">{{ key.name }}</span>
+                            <Badge v-if="key.isSystem" variant="outline" class="text-xs">系统</Badge>
+                            <Badge v-if="index === activeKeyIndex" variant="default" class="text-xs">活动</Badge>
+                            <Badge v-if="key.balance !== undefined" variant="secondary" class="text-xs">余额: {{ formatBalance(key.balance) }}</Badge>
+                          </div>
+                          <div class="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                            <Button
+                              v-if="!key.isSystem"
+                              variant="ghost"
+                              size="icon"
+                              class="h-4 w-4 p-0 flex-shrink-0"
+                              @click="toggleKeyVisibility(index)"
+                              :title="isKeyVisible(index) ? '隐藏API密钥' : '显示API密钥'"
+                            >
+                              <EyeOff v-if="isKeyVisible(index)" class="h-3 w-3" />
+                              <Eye v-else class="h-3 w-3" />
+                            </Button>
+                            <span class="break-all max-w-[250px] inline-block">{{ key.isSystem ? maskKey(key.key) : (isKeyVisible(index) ? key.key : maskKey(key.key)) }}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="flex gap-1">
+                        <Button
+                          v-if="index !== activeKeyIndex"
+                          variant="outline"
+                          size="icon"
+                          class="h-7 w-7"
+                          @click="setActiveKey(index)"
+                          title="激活"
+                        >
+                          <Check class="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          class="h-7 w-7"
+                          @click="checkBalance(index)"
+                          :disabled="isLoading"
+                          title="查询余额"
+                        >
+                          <RefreshCw v-if="isLoading" class="h-3 w-3 animate-spin" />
+                          <RefreshCw v-else class="h-3 w-3" />
+                        </Button>
+                        <Button
+                          v-if="!key.isSystem"
+                          variant="destructive"
+                          size="icon"
+                          class="h-7 w-7"
+                          @click="deleteKey(index)"
+                          title="删除"
+                        >
+                          <Trash2 class="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
                 </div>
               </div>
-            </Card>
+            </template>
+
+            <!-- 当选择特定分组时显示 -->
+            <template v-else>
+              <Card
+                v-for="(key, index) in filteredKeys"
+                :key="index"
+                :class="{'border-primary': index === activeKeyIndex}"
+                class="mb-2 !p-0 !py-0"
+              >
+                <div class="p-3 flex items-center justify-between">
+                  <div class="flex items-center gap-2 flex-1 min-w-0">
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-1 flex-wrap">
+                        <span class="font-medium truncate">{{ key.name }}</span>
+                        <Badge v-if="key.isSystem" variant="outline" class="text-xs">系统</Badge>
+                        <Badge v-if="index === activeKeyIndex" variant="default" class="text-xs">活动</Badge>
+                        <Badge v-if="key.balance !== undefined" variant="secondary" class="text-xs">余额: {{ formatBalance(key.balance) }}</Badge>
+                      </div>
+                      <div class="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                        <Button
+                          v-if="!key.isSystem"
+                          variant="ghost"
+                          size="icon"
+                          class="h-4 w-4 p-0 flex-shrink-0"
+                          @click="toggleKeyVisibility(index)"
+                          :title="isKeyVisible(index) ? '隐藏API密钥' : '显示API密钥'"
+                        >
+                          <EyeOff v-if="isKeyVisible(index)" class="h-3 w-3" />
+                          <Eye v-else class="h-3 w-3" />
+                        </Button>
+                        <span class="break-all max-w-[250px] inline-block">{{ key.isSystem ? maskKey(key.key) : (isKeyVisible(index) ? key.key : maskKey(key.key)) }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex gap-1">
+                    <Button
+                      v-if="index !== activeKeyIndex"
+                      variant="outline"
+                      size="icon"
+                      class="h-7 w-7"
+                      @click="setActiveKey(index)"
+                      title="激活"
+                    >
+                      <Check class="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      class="h-7 w-7"
+                      @click="checkBalance(index)"
+                      :disabled="isLoading"
+                      title="查询余额"
+                    >
+                      <RefreshCw v-if="isLoading" class="h-3 w-3 animate-spin" />
+                      <RefreshCw v-else class="h-3 w-3" />
+                    </Button>
+                    <Button
+                      v-if="!key.isSystem"
+                      variant="destructive"
+                      size="icon"
+                      class="h-7 w-7"
+                      @click="deleteKey(index)"
+                      title="删除"
+                    >
+                      <Trash2 class="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            </template>
           </div>
 
           <div v-else class="text-center py-4">
@@ -622,6 +891,24 @@ const isKeyVisible = (index: number): boolean => {
               </div>
               <p class="text-sm text-muted-foreground mt-1">
                 您可以在 <a href="https://fal.ai/dashboard/keys" target="_blank" class="text-primary hover:underline">FAL.AI 控制面板</a> 中获取API密钥
+              </p>
+            </div>
+
+            <div class="space-y-2">
+              <label for="mobile-key-group" class="text-sm font-medium">分组</label>
+              <div class="relative">
+                <Input
+                  id="mobile-key-group"
+                  v-model="newKeyGroup"
+                  placeholder="输入分组名称或选择现有分组"
+                  list="mobile-group-options"
+                />
+                <datalist id="mobile-group-options">
+                  <option v-for="group in groups" :key="group" :value="group">{{ group }}</option>
+                </datalist>
+              </div>
+              <p class="text-sm text-muted-foreground mt-1">
+                分组可以帮助您更好地组织和管理大量密钥
               </p>
             </div>
           </div>

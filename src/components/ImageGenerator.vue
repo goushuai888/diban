@@ -293,7 +293,7 @@ async function handleGenerate() {
         @update:parameters="parameters = $event"
         @loadSettings="handleLoadSettings"
       />
-      <ImageDisplay :result="result" />
+      <ImageDisplay :result="result" :is-generating="isGenerating" />
     </div>
   </div>
 </template>

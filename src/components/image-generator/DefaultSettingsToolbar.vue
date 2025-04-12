@@ -52,7 +52,7 @@ const getDefaultPresets = (modelId: string): Array<{ name: string, parameters: R
           enable_safety_checker: false,
           safety_tolerance: '6'
         },
-        prompt: '美丽的自然风景，高清摄影，阳光明媚，4K超清，精细的细节'
+        prompt: 'Beautiful natural landscape, high-quality photography, sunny day, 4K ultra-clear, fine details'
       },
       {
         name: '动漫风格人物',
@@ -63,7 +63,7 @@ const getDefaultPresets = (modelId: string): Array<{ name: string, parameters: R
           enable_safety_checker: true,
           safety_tolerance: '4'
         },
-        prompt: '动漫风格的年轻女性角色，彩色插画，精美的线条，精致的细节'
+        prompt: 'Anime style young female character, colorful illustration, beautiful lines, exquisite details'
       },
       {
         name: '未来科技风',
@@ -74,7 +74,7 @@ const getDefaultPresets = (modelId: string): Array<{ name: string, parameters: R
           enable_safety_checker: false,
           safety_tolerance: '6'
         },
-        prompt: '未来科技风格，高科技城市，青蓝色调，全息式渲染，精细的细节，8K超清'
+        prompt: 'Futuristic tech style, high-tech city, blue color scheme, holographic rendering, fine details, 8K ultra-clear'
       }
     ],
     'fal-ai/flux-pro/v1.1-ultra': [
@@ -87,7 +87,7 @@ const getDefaultPresets = (modelId: string): Array<{ name: string, parameters: R
           enable_safety_checker: false,
           safety_tolerance: '6'
         },
-        prompt: '壮丽的山脉风景，超宽屏全景，阳光明媚，8K超清，精细的细节'
+        prompt: 'Magnificent mountain landscape, ultra-wide panorama, sunny day, 8K ultra-clear, fine details'
       },
       {
         name: '电影海报风格',
@@ -98,7 +98,7 @@ const getDefaultPresets = (modelId: string): Array<{ name: string, parameters: R
           enable_safety_checker: true,
           safety_tolerance: '4'
         },
-        prompt: '电影海报风格，高对比度，强烈的视觉冲击，精美的排版，高质量渲染'
+        prompt: 'Movie poster style, high contrast, strong visual impact, beautiful typography, high-quality rendering'
       },
       {
         name: '方形产品展示',
@@ -109,7 +109,7 @@ const getDefaultPresets = (modelId: string): Array<{ name: string, parameters: R
           enable_safety_checker: false,
           safety_tolerance: '6'
         },
-        prompt: '产品展示照片，简洁的背景，专业的灯光，高清细节，商业摄影'
+        prompt: 'Product showcase photo, clean background, professional lighting, high-definition details, commercial photography'
       }
     ],
     'fal-ai/flux-lora': [
@@ -124,7 +124,7 @@ const getDefaultPresets = (modelId: string): Array<{ name: string, parameters: R
           enable_safety_checker: false,
           loras: []
         },
-        prompt: '高清写实照片，自然光线，精细的细节，专业摄影'
+        prompt: 'High-quality realistic photo, natural lighting, fine details, professional photography'
       },
       {
         name: 'LoRA 动漫风格',
@@ -137,7 +137,7 @@ const getDefaultPresets = (modelId: string): Array<{ name: string, parameters: R
           enable_safety_checker: true,
           loras: []
         },
-        prompt: '动漫风格插画，鲜艳的色彩，精美的线条，精致的细节'
+        prompt: 'Anime style illustration, vibrant colors, beautiful lines, exquisite details'
       },
       {
         name: 'LoRA 概念设计',
@@ -150,7 +150,7 @@ const getDefaultPresets = (modelId: string): Array<{ name: string, parameters: R
           enable_safety_checker: false,
           loras: []
         },
-        prompt: '概念设计图，未来风格，强烈的透视感，精细的细节，高质量渲染'
+        prompt: 'Concept design, futuristic style, strong perspective, detailed elements, high-quality rendering'
       }
     ]
   };
