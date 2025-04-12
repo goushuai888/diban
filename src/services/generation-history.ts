@@ -172,8 +172,11 @@ export const fetchGenerations = async (page = 1, pageSize = 20, currentUserOnly 
     console.error('获取生成记录时发生错误:', error);
     // 出错时返回本地记录
     const localGenerations = getLocalGenerations();
+    // 计算分页的起始位置
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
     return {
-      generations: localGenerations.slice(from, from + pageSize),
+      generations: localGenerations.slice(startIndex, endIndex),
       total: localGenerations.length
     };
   }
