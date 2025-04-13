@@ -40,6 +40,13 @@ const getStorageKey = () => `fal-ai-default-settings-${props.modelId}`;
 
 // 默认预设设置
 const getDefaultPresets = (modelId: string): Array<{ name: string, parameters: Record<string, any>, prompt: string }> => {
+  // 确保所有预设的num_images不超过4
+  const ensureValidNumImages = (params: Record<string, any>) => {
+    if (params.num_images && params.num_images > 4) {
+      params.num_images = 4;
+    }
+    return params;
+  };
   // 根据模型ID返回不同的默认预设
   const presets: Record<string, Array<{ name: string, parameters: Record<string, any>, prompt: string }>> = {
     'fal-ai/flux-pro/v1.1': [
@@ -156,7 +163,12 @@ const getDefaultPresets = (modelId: string): Array<{ name: string, parameters: R
   };
 
   // 返回指定模型的预设，如果没有则返回空数组
-  return presets[modelId] || [];
+  // 应用num_images限制到所有预设
+  const result = presets[modelId] || [];
+  return result.map(preset => ({
+    ...preset,
+    parameters: ensureValidNumImages({...preset.parameters})
+  }));
 };
 
 // 加载保存的设置

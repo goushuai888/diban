@@ -114,7 +114,7 @@ export interface SupabaseGeneration {
  */
 export interface SuccessResponse {
   success: true;
-  image: Image;
+  images: Image[];  // 改为多张图片数组
   seed: number;
   requestId: string;
   timings: Record<string, any>;

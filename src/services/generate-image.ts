@@ -42,9 +42,9 @@ export async function generateImage(
       hasImages: !!result.data?.images?.length
     });
 
-    // 从结果中提取第一张图像
-    const image = result.data?.images?.[0];
-    if (!image) {
+    // 从结果中提取所有图像
+    const images = result.data?.images;
+    if (!images || images.length === 0) {
       console.error('❌ 响应中没有图像');
       throw new Error("未生成图像");
     }
@@ -52,12 +52,12 @@ export async function generateImage(
     console.log('🎉 成功生成图像:', {
       seed: result.data?.seed,
       requestId: result.requestId,
-      image
+      imageCount: images.length
     });
 
     return {
       success: true,
-      image,
+      images,
       seed: result.data?.seed,
       requestId: result.requestId,
       timings: result.data?.timings || {},

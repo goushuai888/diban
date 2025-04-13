@@ -125,6 +125,13 @@ const isDropdownOpen = ref(false);
 
 // 默认预设设置
 const getDefaultPresets = (modelId: string): Array<{ name: string, parameters: Record<string, any>, prompt: string }> => {
+  // 确保所有预设的num_images不超过4
+  const ensureValidNumImages = (params: Record<string, any>) => {
+    if (params.num_images && params.num_images > 4) {
+      params.num_images = 4;
+    }
+    return params;
+  };
   // 根据模型ID返回不同的默认预设
   const presets: Record<string, Array<{ name: string, parameters: Record<string, any>, prompt: string }>> = {
     'fal-ai/flux-pro/v1.1': [
@@ -202,7 +209,12 @@ const getDefaultPresets = (modelId: string): Array<{ name: string, parameters: R
     ]
   };
 
-  return presets[modelId] || [];
+  // 应用num_images限制到所有预设
+  const result = presets[modelId] || [];
+  return result.map(preset => ({
+    ...preset,
+    parameters: ensureValidNumImages({...preset.parameters})
+  }));
 };
 
 // 预设设置
@@ -967,7 +979,19 @@ const generateAdvancedPrompt = async () => {
               type="number"
               :value="getParamValue(param)"
               class="h-8"
-              @input="(e: Event) => updateParameter(param.key, Number((e.target as HTMLInputElement).value))"
+              :min="1"
+              :max="param.key === 'num_images' ? 4 : undefined"
+              @input="(e: Event) => {
+                const input = e.target as HTMLInputElement;
+                const value = Number(input.value);
+                // 限制图像数量最大为4
+                if (param.key === 'num_images' && value > 4) {
+                  input.value = '4';
+                  updateParameter(param.key, 4);
+                } else {
+                  updateParameter(param.key, value);
+                }
+              }"
             />
           </div>
         </template>

@@ -14,6 +14,14 @@ const props = defineProps<{
   model: Model;
 }>();
 
+// 确保图像数量不超过4
+const ensureValidNumImages = (params: Record<string, any>): Record<string, any> => {
+  if (params.num_images && params.num_images > 4) {
+    params.num_images = 4;
+  }
+  return params;
+};
+
 // 初始化参数，使用模型架构中的默认值和自定义默认值
 const initParameters = (): Record<string, any> => {
   // 首先从模型架构中获取默认值
@@ -31,7 +39,7 @@ const initParameters = (): Record<string, any> => {
     customDefaults.output_format = 'png';
   }
   if (hasParameter('num_images')) {
-    customDefaults.num_images = 1;
+    customDefaults.num_images = 1; // 默认生成一张图像
   }
 
   // 根据模型ID设置特定默认值
@@ -75,8 +83,8 @@ const initParameters = (): Record<string, any> => {
     }
   }
 
-  // 合并默认值，优先使用自定义默认值
-  return { ...defaultParams, ...customDefaults };
+  // 合并默认值，优先使用自定义默认值，并确保图像数量不超过4
+  return ensureValidNumImages({ ...defaultParams, ...customDefaults });
 };
 
 const parameters = ref<Record<string, any>>(initParameters());
@@ -90,7 +98,7 @@ function hasParameter(key: string): boolean {
 const prompt = ref('');
 
 // 生成结果
-const result = ref<Image | null>(null);
+const result = ref<Image[] | null>(null);
 
 // 生成状态
 const isGenerating = ref(false);
@@ -99,9 +107,9 @@ const isGenerating = ref(false);
 
 // 处理加载默认设置
 const handleLoadSettings = (settings: { parameters: Record<string, any>, prompt: string }) => {
-  // 合并参数，确保所有必要的参数都存在
+  // 合并参数，确保所有必要的参数都存在，并确保图像数量不超过4
   const baseParams = initParameters();
-  parameters.value = { ...baseParams, ...settings.parameters };
+  parameters.value = ensureValidNumImages({ ...baseParams, ...settings.parameters });
   prompt.value = settings.prompt || '';
 
   // 如果是LoRA模型但没有loras参数，初始化为空数组
@@ -123,11 +131,11 @@ async function handleGenerate() {
   isGenerating.value = true;
 
   try {
-    // 准备参数
-    const allParameters: Record<string, any> = {
+    // 准备参数，确保图像数量不超过4
+    const allParameters: Record<string, any> = ensureValidNumImages({
       ...parameters.value,
       prompt: prompt.value,
-    };
+    });
 
     // 处理LoRA参数，过滤掉未填写路径的项
     if (allParameters.loras && Array.isArray(allParameters.loras)) {
@@ -183,34 +191,40 @@ async function handleGenerate() {
       // 类型断言，帮助TypeScript正确推断类型
       const successResponse = response as SuccessResponse;
       console.log("📥 收到生成响应:", {
-        imageUrl: successResponse.image.url,
-        width: successResponse.image.width,
-        height: successResponse.image.height,
+        imageCount: successResponse.images.length,
+        firstImageUrl: successResponse.images[0]?.url,
         seed: successResponse.seed,
         requestId: successResponse.requestId,
       });
-      result.value = successResponse.image;
+      result.value = successResponse.images;
 
-      // 创建新的生成记录
-      const newGeneration: Generation = {
-        id: uuidv4(),
-        modelId: props.model.id,
-        modelName: props.model.name,
-        prompt: prompt.value,
-        parameters: allParameters,
-        output: {
-          images: [successResponse.image],
-          timings: successResponse.timings || {},
-          seed: successResponse.seed,
-          has_nsfw_concepts: successResponse.has_nsfw_concepts || [],
-        },
-        timestamp: Date.now(),
-        userId: currentUserId,
-        isCurrentUser: true
-      };
+      // 将多张图片拆分为单独的记录
+      const savePromises = successResponse.images.map(async (image, index) => {
+        // 创建新的生成记录，每张图片一条记录
+        const newGeneration: Generation = {
+          id: uuidv4(),
+          modelId: props.model.id,
+          modelName: props.model.name,
+          prompt: prompt.value,
+          parameters: allParameters,
+          output: {
+            images: [image], // 只包含当前图片
+            timings: successResponse.timings || {},
+            seed: successResponse.seed,
+            has_nsfw_concepts: successResponse.has_nsfw_concepts ?
+              [successResponse.has_nsfw_concepts[index] || false] : [false],
+          },
+          timestamp: Date.now(),
+          userId: currentUserId,
+          isCurrentUser: true
+        };
 
-      // 保存生成记录到 Supabase
-      await saveGeneration(newGeneration);
+        // 保存生成记录到 Supabase
+        await saveGeneration(newGeneration);
+      });
+
+      // 等待所有记录保存完成
+      await Promise.all(savePromises);
 
       toast.success("图像生成成功", {
         description: `种子: ${successResponse.seed}`
