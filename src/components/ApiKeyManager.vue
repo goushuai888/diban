@@ -6,7 +6,8 @@ import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Eye, EyeOff, Check, Key, Plus, Trash2, RefreshCw, AlertCircle, ChevronDown, ChevronRight } from 'lucide-vue-next';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Eye, EyeOff, Check, Key, Plus, Trash2, RefreshCw, AlertCircle, ChevronDown, ChevronRight, Play } from 'lucide-vue-next';
 import { toast } from 'vue-sonner';
 import { fal } from "@fal-ai/client";
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +27,9 @@ interface ApiKeyInfo {
   balance?: number;
   lastChecked?: number;
   group?: string;
+  isValid?: boolean;  // 密钥是否有效
+  invalidReason?: string;  // 失效原因，如 'balance_exhausted'
+  isLoading?: boolean;  // 密钥是否正在加载中
 }
 
 // 状态
@@ -37,10 +41,15 @@ const isVisible = ref(false); // 用于添加密钥表单
 const visibleKeyIndices = ref<Set<number>>(new Set()); // 用于记录哪些密钥是可见的
 const isDialogOpen = ref(false);
 const isSheetOpen = ref(false);
-const isLoading = ref(false);
 const activeTab = ref('keys');
 const selectedGroup = ref('all'); // 当前选择的分组
 const expandedGroups = ref<Set<string>>(new Set()); // 展开的分组
+
+// 每个组的测试进度
+const groupTestProgress = ref<Record<string, { current: number, total: number, isLoading: boolean }>>({});
+
+// 当前是否为开发环境
+const isDevelopment = import.meta.env.DEV;
 
 // 监听 activeTab 变化，当切换到添加密钥标签时重置表单
 watch(activeTab, (newValue) => {
@@ -139,7 +148,7 @@ onMounted(async () => {
       if (!exists) {
         keys.push({
           key: systemKey,
-          name: `系统密钥 ${keys.length + 1}`,
+          name: `密钥 ${keys.length + 1}`,
           isSystem: true,
           group: '默认组'
         });
@@ -159,10 +168,35 @@ onMounted(async () => {
   expandedGroups.value = groupSet;
 
   // 设置活动密钥
-  if (storedActiveIndex && parseInt(storedActiveIndex) < keys.length) {
-    activeKeyIndex.value = parseInt(storedActiveIndex);
-  } else if (keys.length > 0) {
-    activeKeyIndex.value = 0;
+  if (keys.length > 0) {
+    let validKeyIndex = -1;
+
+    // 先尝试使用存储的活动密钥索引
+    if (storedActiveIndex && !isNaN(Number(storedActiveIndex))) {
+      const index = Number(storedActiveIndex);
+      if (index >= 0 && index < keys.length && keys[index].isValid !== false) {
+        activeKeyIndex.value = index;
+        validKeyIndex = index;
+      }
+    }
+
+    // 如果存储的密钥无效或不存在，则尝试找到第一个有效的密钥
+    if (validKeyIndex === -1) {
+      // 寻找第一个有效的密钥
+      for (let i = 0; i < keys.length; i++) {
+        if (keys[i].isValid !== false) {
+          activeKeyIndex.value = i;
+          validKeyIndex = i;
+          break;
+        }
+      }
+
+      // 如果所有密钥都失效，使用第一个密钥，但不显示提示
+      if (validKeyIndex === -1) {
+        activeKeyIndex.value = 0;
+        console.warn('所有API密钥都失效，请验证或添加新的密钥');
+      }
+    }
   }
 
   // 配置FAL客户端
@@ -232,6 +266,12 @@ const addNewKey = () => {
 // 设置活动密钥
 const setActiveKey = (index: number) => {
   if (index >= 0 && index < apiKeys.value.length) {
+    // 检查密钥是否失效
+    if (apiKeys.value[index].isValid === false) {
+      toast.error(`无法激活失效的API密钥`);
+      return;
+    }
+
     activeKeyIndex.value = index;
     const key = apiKeys.value[index].key;
     configureFalClient(key);
@@ -279,10 +319,16 @@ const deleteKey = (index: number) => {
   }
 };
 
-// 查询余额
+// 测试API密钥可用性
 const checkBalance = async (index: number) => {
   if (index >= 0 && index < apiKeys.value.length) {
-    isLoading.value = true;
+    // 设置当前密钥的加载状态
+    const newKeys = [...apiKeys.value];
+    newKeys[index] = {
+      ...newKeys[index],
+      isLoading: true
+    };
+    apiKeys.value = newKeys;
 
     try {
       // 临时配置FAL客户端
@@ -290,58 +336,119 @@ const checkBalance = async (index: number) => {
         credentials: apiKeys.value[index].key,
       });
 
-      // 调用FAL API查询余额
-      // 注意：这里需要根据FAL API的实际情况进行调整
-      const response = await fetch('https://api.fal.ai/user/balance', {
-        headers: {
-          'Authorization': `Key ${apiKeys.value[index].key}`
-        }
+      // 调用any-llm模型测试API密钥可用性
+      await fal.subscribe("fal-ai/any-llm", {
+        input: {
+          system_prompt: "You are a helpful assistant.",
+          prompt: "Hello, this is a test message to verify API key validity.",
+          model: "anthropic/claude-3.7-sonnet" as any,
+        },
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP错误: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      // 更新余额信息
-      const newKeys = [...apiKeys.value];
-      newKeys[index] = {
-        ...newKeys[index],
-        balance: data.balance || 0,
-        lastChecked: Date.now()
+      // 如果没有抛出错误，说明API密钥有效
+      // 更新密钥状态
+      const updatedKeys = [...apiKeys.value];
+      updatedKeys[index] = {
+        ...updatedKeys[index],
+        lastChecked: Date.now(),
+        isValid: true,  // 标记为有效
+        invalidReason: undefined,  // 清除失效原因
+        isLoading: false  // 结束加载状态
       };
-      apiKeys.value = newKeys;
+      apiKeys.value = updatedKeys;
 
       // 保存到本地存储
-      localStorage.setItem(API_KEYS_STORAGE_KEY, JSON.stringify(newKeys));
+      localStorage.setItem(API_KEYS_STORAGE_KEY, JSON.stringify(updatedKeys));
 
-      toast.success(`余额已更新: ${data.balance || 0}`);
+      toast.success(`API密钥有效`);
     } catch (error) {
-      console.error('查询余额失败:', error);
-      toast.error('查询余额失败');
+      console.error('API密钥验证失败:', error);
+
+      // 更新密钥状态
+      const updatedKeys = [...apiKeys.value];
+      updatedKeys[index] = {
+        ...updatedKeys[index],
+        lastChecked: Date.now(),
+        isValid: false,  // 标记为无效
+        isLoading: false  // 结束加载状态
+      };
+
+      // 检查是否是余额不足错误
+      let errorMessage = '验证失败';
+
+      if (error && typeof error === 'object') {
+        // 检查是否包含余额不足信息
+        const errorString = JSON.stringify(error);
+        if (errorString.includes('Exhausted balance')) {
+          errorMessage = '失效';
+          updatedKeys[index].invalidReason = 'balance_exhausted';
+        }
+      }
+
+      // 保存到本地存储
+      apiKeys.value = updatedKeys;
+      localStorage.setItem(API_KEYS_STORAGE_KEY, JSON.stringify(updatedKeys));
+
+      toast.error(`API密钥${errorMessage}`);
     } finally {
       // 恢复活动密钥的配置
       if (activeKey.value) {
         configureFalClient(activeKey.value.key);
       }
-
-      isLoading.value = false;
     }
   }
 };
 
-// 格式化余额
-const formatBalance = (balance?: number) => {
-  if (balance === undefined) return '未知';
-  return balance.toFixed(2);
-};
+
 
 // 格式化最后检查时间 - 不再使用
 // const formatLastChecked = (timestamp?: number) => {
 //   if (!timestamp) return '从未检查';
 //   return new Date(timestamp).toLocaleString();
 // };
+
+// 测试一个组内的所有API Key
+const testGroupKeys = async (group: string) => {
+  // 获取该组的所有密钥
+  const groupKeys = apiKeys.value.filter(key => key.group === group);
+  const total = groupKeys.length;
+
+  if (total === 0) return;
+
+  // 初始化进度
+  groupTestProgress.value[group] = {
+    current: 0,
+    total,
+    isLoading: true
+  };
+
+  // 并发测试所有密钥，每次最多5个
+  const batchSize = 5;
+  const batches = Math.ceil(total / batchSize);
+
+  for (let i = 0; i < batches; i++) {
+    const start = i * batchSize;
+    const end = Math.min(start + batchSize, total);
+    const batch = groupKeys.slice(start, end);
+
+    // 并发测试这一批密钥
+    await Promise.all(batch.map(async (key) => {
+      // 找到该密钥在原数组中的索引
+      const keyIndex = apiKeys.value.findIndex(k => k.key === key.key);
+      if (keyIndex === -1) return;
+
+      // 测试密钥
+      await checkBalance(keyIndex);
+
+      // 更新进度
+      groupTestProgress.value[group].current++;
+    }));
+  }
+
+  // 测试完成
+  groupTestProgress.value[group].isLoading = false;
+  toast.success(`组 "${group}" 的所有密钥测试完成`);
+};
 
 // 切换密码可见性
 const toggleVisibility = () => {
@@ -379,7 +486,7 @@ const isKeyVisible = (index: number): boolean => {
       </Button>
     </DialogTrigger>
 
-    <DialogContent class="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
+    <DialogContent class="sm:max-w-[500px] overflow-hidden">
       <DialogHeader>
         <DialogTitle>管理API密钥</DialogTitle>
         <DialogDescription>
@@ -398,7 +505,7 @@ const isKeyVisible = (index: number): boolean => {
         </div>
 
         <!-- 密钥管理标签页 -->
-        <div v-if="activeTab === 'keys'" class="space-y-4 py-4 max-h-[300px] overflow-y-auto pr-2">
+        <div v-if="activeTab === 'keys'" class="space-y-4 py-4">
           <!-- 分组选择器 -->
           <div class="mb-4">
             <Select v-model="selectedGroup">
@@ -412,20 +519,38 @@ const isKeyVisible = (index: number): boolean => {
             </Select>
           </div>
 
-          <div v-if="hasKeys" class="space-y-4">
+          <ScrollArea v-if="hasKeys" class="h-[60vh] max-h-[500px]">
+            <div class="space-y-4 pr-4">
             <!-- 分组显示 -->
             <template v-if="selectedGroup === 'all'">
               <div v-for="group in groups" :key="group" class="mb-4">
-                <div
-                  class="flex items-center gap-2 mb-2 cursor-pointer hover:text-primary transition-colors"
-                  @click="toggleGroupExpanded(group)"
-                >
-                  <ChevronDown v-if="expandedGroups.has(group)" class="h-4 w-4" />
-                  <ChevronRight v-else class="h-4 w-4" />
-                  <h3 class="font-medium">{{ group }}</h3>
-                  <Badge variant="outline" class="ml-2">
-                    {{ apiKeys.filter(k => k.group === group).length }}
-                  </Badge>
+                <div class="flex items-center justify-between mb-2">
+                  <div
+                    class="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
+                    @click="toggleGroupExpanded(group)"
+                  >
+                    <ChevronDown v-if="expandedGroups.has(group)" class="h-4 w-4" />
+                    <ChevronRight v-else class="h-4 w-4" />
+                    <h3 class="font-medium">{{ group }}</h3>
+                    <Badge variant="outline" class="ml-2">
+                      {{ apiKeys.filter(k => k.group === group).length }}
+                    </Badge>
+                  </div>
+
+                  <!-- 测试组内所有密钥的按钮，只在开发环境中显示 -->
+                  <Button
+                    v-if="isDevelopment"
+                    variant="outline"
+                    size="sm"
+                    class="h-7 gap-1"
+                    @click="testGroupKeys(group)"
+                    :disabled="groupTestProgress[group]?.isLoading"
+                  >
+                    <Play v-if="!groupTestProgress[group]?.isLoading" class="h-3 w-3" />
+                    <RefreshCw v-else class="h-3 w-3 animate-spin" />
+                    <span v-if="!groupTestProgress[group]?.isLoading">测试组</span>
+                    <span v-else>{{ groupTestProgress[group]?.current }}/{{ groupTestProgress[group]?.total }}</span>
+                  </Button>
                 </div>
 
                 <div v-if="expandedGroups.has(group)" class="space-y-2 pl-2">
@@ -435,14 +560,23 @@ const isKeyVisible = (index: number): boolean => {
                     :class="{'border-primary': index === activeKeyIndex}"
                     class="mb-2 !p-0 !py-0"
                   >
-                    <div class="p-3 flex items-center justify-between">
+                    <div
+                      class="p-3 flex items-center justify-between cursor-pointer transition-colors"
+                      @click="key.isValid !== false && setActiveKey(index)"
+                      :class="{
+                        'opacity-70': key.isValid === false,
+                        'hover:bg-accent/50': index !== activeKeyIndex && key.isValid !== false,
+                        'bg-accent/20': index === activeKeyIndex
+                      }"
+                    >
                       <div class="flex items-center gap-2 flex-1 min-w-0">
                         <div class="flex-1 min-w-0">
                           <div class="flex items-center gap-1 flex-wrap">
                             <span class="font-medium truncate">{{ key.name }}</span>
                             <Badge v-if="key.isSystem" variant="outline" class="text-xs">系统</Badge>
                             <Badge v-if="index === activeKeyIndex" variant="default" class="text-xs">活动</Badge>
-                            <Badge v-if="key.balance !== undefined" variant="secondary" class="text-xs">余额: {{ formatBalance(key.balance) }}</Badge>
+                            <Badge v-if="key.isValid === false" variant="destructive" class="text-xs">失效</Badge>
+
                           </div>
                           <div class="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                             <Button
@@ -450,7 +584,7 @@ const isKeyVisible = (index: number): boolean => {
                               variant="ghost"
                               size="icon"
                               class="h-4 w-4 p-0 flex-shrink-0"
-                              @click="toggleKeyVisibility(index)"
+                              @click.stop="toggleKeyVisibility(index)"
                               :title="isKeyVisible(index) ? '隐藏API密钥' : '显示API密钥'"
                             >
                               <EyeOff v-if="isKeyVisible(index)" class="h-3 w-3" />
@@ -461,25 +595,16 @@ const isKeyVisible = (index: number): boolean => {
                         </div>
                       </div>
                       <div class="flex gap-1">
-                        <Button
-                          v-if="index !== activeKeyIndex"
-                          variant="outline"
-                          size="icon"
-                          class="h-7 w-7"
-                          @click="setActiveKey(index)"
-                          title="激活"
-                        >
-                          <Check class="h-3 w-3" />
-                        </Button>
+
                         <Button
                           variant="outline"
                           size="icon"
                           class="h-7 w-7"
                           @click="checkBalance(index)"
-                          :disabled="isLoading"
-                          title="查询余额"
+                          :disabled="key.isLoading"
+                          title="验证密钥"
                         >
-                          <RefreshCw v-if="isLoading" class="h-3 w-3 animate-spin" />
+                          <RefreshCw v-if="key.isLoading" class="h-3 w-3 animate-spin" />
                           <RefreshCw v-else class="h-3 w-3" />
                         </Button>
                         <Button
@@ -514,7 +639,8 @@ const isKeyVisible = (index: number): boolean => {
                         <span class="font-medium truncate">{{ key.name }}</span>
                         <Badge v-if="key.isSystem" variant="outline" class="text-xs">系统</Badge>
                         <Badge v-if="index === activeKeyIndex" variant="default" class="text-xs">活动</Badge>
-                        <Badge v-if="key.balance !== undefined" variant="secondary" class="text-xs">余额: {{ formatBalance(key.balance) }}</Badge>
+                        <Badge v-if="key.isValid === false" variant="destructive" class="text-xs">失效</Badge>
+
                       </div>
                       <div class="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                         <Button
@@ -548,10 +674,10 @@ const isKeyVisible = (index: number): boolean => {
                       size="icon"
                       class="h-7 w-7"
                       @click="checkBalance(index)"
-                      :disabled="isLoading"
-                      title="查询余额"
+                      :disabled="key.isLoading"
+                      title="验证密钥"
                     >
-                      <RefreshCw v-if="isLoading" class="h-3 w-3 animate-spin" />
+                      <RefreshCw v-if="key.isLoading" class="h-3 w-3 animate-spin" />
                       <RefreshCw v-else class="h-3 w-3" />
                     </Button>
                     <Button
@@ -568,7 +694,8 @@ const isKeyVisible = (index: number): boolean => {
                 </div>
               </Card>
             </template>
-          </div>
+            </div>
+          </ScrollArea>
 
           <div v-else class="text-center py-4">
             <AlertCircle class="h-10 w-10 text-muted-foreground mx-auto mb-2" />
@@ -695,16 +822,33 @@ const isKeyVisible = (index: number): boolean => {
             <!-- 分组显示 -->
             <template v-if="selectedGroup === 'all'">
               <div v-for="group in groups" :key="group" class="mb-4">
-                <div
-                  class="flex items-center gap-2 mb-2 cursor-pointer hover:text-primary transition-colors"
-                  @click="toggleGroupExpanded(group)"
-                >
-                  <ChevronDown v-if="expandedGroups.has(group)" class="h-4 w-4" />
-                  <ChevronRight v-else class="h-4 w-4" />
-                  <h3 class="font-medium">{{ group }}</h3>
-                  <Badge variant="outline" class="ml-2">
-                    {{ apiKeys.filter(k => k.group === group).length }}
-                  </Badge>
+                <div class="flex items-center justify-between mb-2">
+                  <div
+                    class="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
+                    @click="toggleGroupExpanded(group)"
+                  >
+                    <ChevronDown v-if="expandedGroups.has(group)" class="h-4 w-4" />
+                    <ChevronRight v-else class="h-4 w-4" />
+                    <h3 class="font-medium">{{ group }}</h3>
+                    <Badge variant="outline" class="ml-2">
+                      {{ apiKeys.filter(k => k.group === group).length }}
+                    </Badge>
+                  </div>
+
+                  <!-- 测试组内所有密钥的按钮，只在开发环境中显示 -->
+                  <Button
+                    v-if="isDevelopment"
+                    variant="outline"
+                    size="sm"
+                    class="h-7 gap-1"
+                    @click="testGroupKeys(group)"
+                    :disabled="groupTestProgress[group]?.isLoading"
+                  >
+                    <Play v-if="!groupTestProgress[group]?.isLoading" class="h-3 w-3" />
+                    <RefreshCw v-else class="h-3 w-3 animate-spin" />
+                    <span v-if="!groupTestProgress[group]?.isLoading">测试组</span>
+                    <span v-else>{{ groupTestProgress[group]?.current }}/{{ groupTestProgress[group]?.total }}</span>
+                  </Button>
                 </div>
 
                 <div v-if="expandedGroups.has(group)" class="space-y-2 pl-2">
@@ -714,14 +858,23 @@ const isKeyVisible = (index: number): boolean => {
                     :class="{'border-primary': index === activeKeyIndex}"
                     class="mb-2 !p-0 !py-0"
                   >
-                    <div class="p-3 flex items-center justify-between">
+                    <div
+                      class="p-3 flex items-center justify-between cursor-pointer transition-colors"
+                      @click="key.isValid !== false && setActiveKey(index)"
+                      :class="{
+                        'opacity-70': key.isValid === false,
+                        'hover:bg-accent/50': index !== activeKeyIndex && key.isValid !== false,
+                        'bg-accent/20': index === activeKeyIndex
+                      }"
+                    >
                       <div class="flex items-center gap-2 flex-1 min-w-0">
                         <div class="flex-1 min-w-0">
                           <div class="flex items-center gap-1 flex-wrap">
                             <span class="font-medium truncate">{{ key.name }}</span>
                             <Badge v-if="key.isSystem" variant="outline" class="text-xs">系统</Badge>
                             <Badge v-if="index === activeKeyIndex" variant="default" class="text-xs">活动</Badge>
-                            <Badge v-if="key.balance !== undefined" variant="secondary" class="text-xs">余额: {{ formatBalance(key.balance) }}</Badge>
+                            <Badge v-if="key.isValid === false" variant="destructive" class="text-xs">失效</Badge>
+
                           </div>
                           <div class="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                             <Button
@@ -729,7 +882,7 @@ const isKeyVisible = (index: number): boolean => {
                               variant="ghost"
                               size="icon"
                               class="h-4 w-4 p-0 flex-shrink-0"
-                              @click="toggleKeyVisibility(index)"
+                              @click.stop="toggleKeyVisibility(index)"
                               :title="isKeyVisible(index) ? '隐藏API密钥' : '显示API密钥'"
                             >
                               <EyeOff v-if="isKeyVisible(index)" class="h-3 w-3" />
@@ -740,25 +893,16 @@ const isKeyVisible = (index: number): boolean => {
                         </div>
                       </div>
                       <div class="flex gap-1">
-                        <Button
-                          v-if="index !== activeKeyIndex"
-                          variant="outline"
-                          size="icon"
-                          class="h-7 w-7"
-                          @click="setActiveKey(index)"
-                          title="激活"
-                        >
-                          <Check class="h-3 w-3" />
-                        </Button>
+
                         <Button
                           variant="outline"
                           size="icon"
                           class="h-7 w-7"
                           @click="checkBalance(index)"
-                          :disabled="isLoading"
-                          title="查询余额"
+                          :disabled="key.isLoading"
+                          title="验证密钥"
                         >
-                          <RefreshCw v-if="isLoading" class="h-3 w-3 animate-spin" />
+                          <RefreshCw v-if="key.isLoading" class="h-3 w-3 animate-spin" />
                           <RefreshCw v-else class="h-3 w-3" />
                         </Button>
                         <Button
@@ -793,7 +937,8 @@ const isKeyVisible = (index: number): boolean => {
                         <span class="font-medium truncate">{{ key.name }}</span>
                         <Badge v-if="key.isSystem" variant="outline" class="text-xs">系统</Badge>
                         <Badge v-if="index === activeKeyIndex" variant="default" class="text-xs">活动</Badge>
-                        <Badge v-if="key.balance !== undefined" variant="secondary" class="text-xs">余额: {{ formatBalance(key.balance) }}</Badge>
+                        <Badge v-if="key.isValid === false" variant="destructive" class="text-xs">失效</Badge>
+
                       </div>
                       <div class="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                         <Button
@@ -827,10 +972,10 @@ const isKeyVisible = (index: number): boolean => {
                       size="icon"
                       class="h-7 w-7"
                       @click="checkBalance(index)"
-                      :disabled="isLoading"
-                      title="查询余额"
+                      :disabled="key.isLoading"
+                      title="验证密钥"
                     >
-                      <RefreshCw v-if="isLoading" class="h-3 w-3 animate-spin" />
+                      <RefreshCw v-if="key.isLoading" class="h-3 w-3 animate-spin" />
                       <RefreshCw v-else class="h-3 w-3" />
                     </Button>
                     <Button

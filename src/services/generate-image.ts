@@ -1,5 +1,6 @@
 import { fal } from "@fal-ai/client";
 import type { Model, GenerateImageResponse } from "@/types/flux";
+import { handleBalanceExhaustedError } from "./api-key-manager";
 
 export async function generateImage(
   model: Model,
@@ -78,10 +79,20 @@ export async function generateImage(
           if (apiError.body && apiError.body.detail &&
               typeof apiError.body.detail === 'string' &&
               apiError.body.detail.includes('Exhausted balance')) {
+
+            // 尝试自动切换到下一个API密钥
+            const switched = handleBalanceExhaustedError();
+
+            if (switched) {
+              // 如果成功切换了API密钥，重新尝试生成图像
+              return generateImage(model, input, localStorage.getItem("fal-ai-active-key") || "");
+            }
+
+            // 如果没有可用的API密钥，返回错误
             return {
               success: false,
-              error: "账户余额不足，请前往 fal.ai/dashboard/billing 充值您的账户",
-              errorCode: "BALANCE_EXHAUSTED"
+              error: "所有API密钥余额不足，请添加新的API密钥或充值",
+              errorCode: "ALL_KEYS_EXHAUSTED"
             };
           }
         }
@@ -92,10 +103,19 @@ export async function generateImage(
       if ('message' in error) {
         const errorMessage = (error as { message: string }).message;
         if (errorMessage.includes('403') && errorMessage.includes('Exhausted balance')) {
+          // 尝试自动切换到下一个API密钥
+          const switched = handleBalanceExhaustedError();
+
+          if (switched) {
+            // 如果成功切换了API密钥，重新尝试生成图像
+            return generateImage(model, input, localStorage.getItem("fal-ai-active-key") || "");
+          }
+
+          // 如果没有可用的API密钥，返回错误
           return {
             success: false,
-            error: "账户余额不足，请前往 fal.ai/dashboard/billing 充值您的账户",
-            errorCode: "BALANCE_EXHAUSTED"
+            error: "所有API密钥余额不足，请添加新的API密钥或充值",
+            errorCode: "ALL_KEYS_EXHAUSTED"
           };
         }
 
@@ -105,10 +125,19 @@ export async function generateImage(
           if (errorMatch) {
             const errorJson = JSON.parse(errorMatch[0]);
             if (errorJson.detail && errorJson.detail.includes('Exhausted balance')) {
+              // 尝试自动切换到下一个API密钥
+              const switched = handleBalanceExhaustedError();
+
+              if (switched) {
+                // 如果成功切换了API密钥，重新尝试生成图像
+                return generateImage(model, input, localStorage.getItem("fal-ai-active-key") || "");
+              }
+
+              // 如果没有可用的API密钥，返回错误
               return {
                 success: false,
-                error: "账户余额不足，请前往 fal.ai/dashboard/billing 充值您的账户",
-                errorCode: "BALANCE_EXHAUSTED"
+                error: "所有API密钥余额不足，请添加新的API密钥或充值",
+                errorCode: "ALL_KEYS_EXHAUSTED"
               };
             }
           }

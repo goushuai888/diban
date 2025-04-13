@@ -260,7 +260,7 @@ function deleteSetting(index: number) {
     <!-- 保存设置对话框 -->
     <Dialog v-model:open="isDialogOpen">
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" class="gap-1">
+        <Button variant="outline" size="sm" class="gap-1 save-settings-dialog-trigger">
           <Save class="h-4 w-4" />
           保存设置
         </Button>
@@ -297,7 +297,7 @@ function deleteSetting(index: number) {
     <!-- 加载设置下拉菜单 -->
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" class="gap-1">
+        <Button variant="outline" size="sm" class="gap-1 default-settings-dialog-trigger">
           <Settings class="h-4 w-4" />
           默认设置
         </Button>

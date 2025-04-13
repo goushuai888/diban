@@ -10,11 +10,14 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { X, Wand2, ExternalLink, AlertTriangle } from "lucide-vue-next";
+import { X, Wand2, Save, Settings, Trash2, RefreshCw } from "lucide-vue-next";
+import ImageSizeRadioGroup from "./ImageSizeRadioGroup.vue";
 import DefaultSettingsToolbar from "./DefaultSettingsToolbar.vue";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { fal } from "@fal-ai/client";
 import { toast } from 'vue-sonner';
+import { handleBalanceExhaustedError } from "@/services/api-key-manager";
 
 const props = defineProps<{
   prompt: string;
@@ -30,20 +33,38 @@ const emit = defineEmits<{
   (e: 'loadSettings', settings: { parameters: Record<string, any>, prompt: string }): void;
 }>();
 
-const updatePrompt = (value: string) => {
-  emit('update:prompt', value);
-};
+// 使用计算属性来处理双向绑定，保持光标位置
+const promptValue = computed({
+  get: () => props.prompt,
+  set: (value: string) => {
+    emit('update:prompt', value);
+  }
+});
 
 // 加载默认设置
 const loadSettings = (settings: { parameters: Record<string, any>, prompt: string }) => {
+  // 先加载设置
   emit('loadSettings', settings);
+
+  // 然后生成新的随机种子
+  setTimeout(() => {
+    generateRandomSeed();
+  }, 100); // 延迟一下，确保设置已加载完成
 };
 
 // 初始化所有参数
 const initializeAllParameters = () => {
   // 检查所有参数是否有值
   props.model.inputSchema.forEach(param => {
-    if (props.parameters[param.key] === undefined && param.default !== undefined) {
+    // 特别处理随机种子参数
+    if (param.key === 'seed') {
+      if (props.parameters[param.key] === undefined || props.parameters[param.key] === null || props.parameters[param.key] === '') {
+        // 生成一个最多8位的随机种子值（0-99999999）
+        const randomSeed = Math.floor(Math.random() * 100000000);
+        updateParameter(param.key, randomSeed);
+        console.log(`设置随机种子参数为 ${randomSeed}`);
+      }
+    } else if (props.parameters[param.key] === undefined && param.default !== undefined) {
       updateParameter(param.key, param.default);
       console.log(`设置参数 ${param.key} 的初始值为 ${param.default}`);
     }
@@ -81,10 +102,277 @@ const updateParameter = (key: string, value: any) => {
   emit('update:parameters', newParameters);
 };
 
+// 生成随机种子
+const generateRandomSeed = () => {
+  // 生成最多8位的随机数，范围为0-99999999
+  const randomSeed = Math.floor(Math.random() * 100000000);
+  // 查找 seed 参数
+  const seedParam = props.model.inputSchema.find(param => param.key === 'seed');
+  if (seedParam) {
+    updateParameter('seed', randomSeed);
+    toast.success(`已生成新的随机种子: ${randomSeed}`);
+  }
+};
+
+
+
+
+// 设置相关
+const savedSettings = ref<Array<{id: string, name: string, parameters: Record<string, any>, prompt: string}>>([]);
+const settingName = ref('');
+const isDialogOpen = ref(false);
+const isDropdownOpen = ref(false);
+
+// 默认预设设置
+const getDefaultPresets = (modelId: string): Array<{ name: string, parameters: Record<string, any>, prompt: string }> => {
+  // 根据模型ID返回不同的默认预设
+  const presets: Record<string, Array<{ name: string, parameters: Record<string, any>, prompt: string }>> = {
+    'fal-ai/flux-pro/v1.1': [
+      {
+        name: '高清写实风景',
+        parameters: {
+          image_size: 'landscape_16_9',
+          output_format: 'png',
+          num_images: 1,
+          enable_safety_checker: false,
+          safety_tolerance: '6'
+        },
+        prompt: 'Beautiful natural landscape, high-quality photography, sunny day, 4K ultra-clear, fine details'
+      },
+      {
+        name: '动漫风格人物',
+        parameters: {
+          image_size: 'portrait_4_3',
+          output_format: 'png',
+          num_images: 1,
+          enable_safety_checker: true,
+          safety_tolerance: '4'
+        },
+        prompt: 'Anime style young female character, colorful illustration, beautiful lines, exquisite details'
+      },
+      {
+        name: '未来科技风',
+        parameters: {
+          image_size: 'square_hd',
+          output_format: 'png',
+          num_images: 1,
+          enable_safety_checker: false,
+          safety_tolerance: '6'
+        },
+        prompt: 'Futuristic tech style, high-tech city, blue color scheme, holographic rendering, fine details, 8K ultra-clear'
+      }
+    ],
+    'fal-ai/flux-pro/v1.1-ultra': [
+      {
+        name: '超宽屏风景',
+        parameters: {
+          aspect_ratio: '21:9',
+          output_format: 'png',
+          num_images: 1,
+          enable_safety_checker: false,
+          safety_tolerance: '6'
+        },
+        prompt: 'Magnificent mountain landscape, ultra-wide panorama, sunny day, 8K ultra-clear, fine details'
+      },
+      {
+        name: '电影海报风格',
+        parameters: {
+          aspect_ratio: '2:3',
+          output_format: 'png',
+          num_images: 1,
+          enable_safety_checker: true,
+          safety_tolerance: '4'
+        },
+        prompt: 'Movie poster style, dramatic lighting, cinematic composition, high contrast, professional quality'
+      }
+    ],
+    'fal-ai/flux-lora': [
+      {
+        name: 'LoRA 基础设置',
+        parameters: {
+          image_size: 'square_hd',
+          output_format: 'png',
+          num_images: 1,
+          enable_safety_checker: true,
+          safety_tolerance: '4',
+          loras: []
+        },
+        prompt: 'High quality, masterpiece, detailed, 8K resolution'
+      }
+    ]
+  };
+
+  return presets[modelId] || [];
+};
+
+// 预设设置
+const defaultPresets = computed(() => {
+  return getDefaultPresets(props.model.id).map(preset => ({
+    ...preset,
+    id: `preset-${preset.name}`,
+    isPreset: true
+  }));
+});
+
+// 所有设置
+const allSettings = computed(() => {
+  // 合并预设设置和用户设置
+  return [...defaultPresets.value, ...savedSettings.value];
+});
+
+// 保存当前设置
+const saveCurrentSetting = () => {
+  if (!settingName.value.trim()) {
+    toast.error('请输入设置名称');
+    return;
+  }
+
+  const modelId = props.model.id;
+  const storageKey = `fal-ai-settings-${modelId}`;
+
+  const newSetting = {
+    id: Date.now().toString(),
+    name: settingName.value,
+    parameters: { ...props.parameters },
+    prompt: props.prompt
+  };
+
+  savedSettings.value = [newSetting, ...savedSettings.value];
+
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(savedSettings.value));
+    toast.success('设置已保存');
+    settingName.value = '';
+    isDialogOpen.value = false;
+  } catch (error) {
+    console.error('保存设置失败:', error);
+    toast.error('保存设置失败');
+  }
+};
+
+// 加载设置
+const loadSetting = (setting: {id: string, name: string, parameters: Record<string, any>, prompt: string, isPreset?: boolean}) => {
+  emit('loadSettings', {
+    parameters: setting.parameters,
+    prompt: setting.prompt
+  });
+  toast.success(`已加载设置: ${setting.name}`);
+
+  // 关闭下拉菜单
+  isDropdownOpen.value = false;
+
+  // 生成新的随机种子
+  setTimeout(() => {
+    generateRandomSeed();
+  }, 100); // 延迟一下，确保设置已加载完成
+};
+
+// 删除设置
+const deleteSetting = (id: string) => {
+  // 先检查是否是预设设置
+  const presetIndex = defaultPresets.value.findIndex(preset => preset.id === id);
+  if (presetIndex !== -1) {
+    // 删除预设设置
+    const presetName = defaultPresets.value[presetIndex].name;
+    // 预设设置不会真正从数组中移除，只是显示删除成功的提示
+    toast.success(`已删除设置: ${presetName}`);
+    isDropdownOpen.value = false;
+    return;
+  }
+
+  // 如果不是预设设置，则删除用户自定义设置
+  const index = savedSettings.value.findIndex(setting => setting.id === id);
+  if (index !== -1) {
+    const settingName = savedSettings.value[index].name;
+    savedSettings.value.splice(index, 1);
+
+    const modelId = props.model.id;
+    const storageKey = `fal-ai-settings-${modelId}`;
+    localStorage.setItem(storageKey, JSON.stringify(savedSettings.value));
+
+    toast.success(`已删除设置: ${settingName}`);
+    isDropdownOpen.value = false;
+  }
+};
+
+// 获取保存的设置
+onMounted(() => {
+  // 从本地存储中获取设置
+  const modelId = props.model.id;
+  const storageKey = `fal-ai-settings-${modelId}`;
+  try {
+    const storedSettings = localStorage.getItem(storageKey);
+    if (storedSettings) {
+      savedSettings.value = JSON.parse(storedSettings);
+    }
+  } catch (error) {
+    console.error('加载设置失败:', error);
+  }
+});
+
 // 过滤出各类参数
 const enumParameters = computed(() => {
   return props.model.inputSchema
     .filter(param => param.type === 'enum' && param.key !== 'prompt');
+});
+
+// 判断是否有图像尺寸参数
+const hasImageSizeParam = computed(() => {
+  return props.model.inputSchema.some(param =>
+    param.type === 'enum' && (param.key === 'image_size' || param.key === 'aspect_ratio')
+  );
+});
+
+// 获取图像尺寸参数的键
+const getImageSizeParamKey = () => {
+  const param = props.model.inputSchema.find(param =>
+    param.type === 'enum' && (param.key === 'image_size' || param.key === 'aspect_ratio')
+  );
+  return param ? param.key : '';
+};
+
+// 获取图像尺寸参数的值
+const getImageSizeValue = () => {
+  const key = getImageSizeParamKey();
+  if (!key) return '';
+
+  const param = props.model.inputSchema.find(p => p.key === key);
+  return props.parameters[key] || (param?.default as string) || '';
+};
+
+// 获取图像尺寸参数的选项
+const getImageSizeOptions = () => {
+  const key = getImageSizeParamKey();
+  if (!key) return [];
+
+  const param = props.model.inputSchema.find(p => p.key === key);
+  return param?.options || [];
+};
+
+// 其他枚举参数（排除图像尺寸参数）
+const otherEnumParameters = computed(() => {
+  return props.model.inputSchema
+    .filter(param =>
+      param.type === 'enum' &&
+      param.key !== 'prompt' &&
+      param.key !== 'image_size' &&
+      param.key !== 'aspect_ratio'
+    );
+});
+
+// 移动端一行显示的枚举参数
+const mobileRowEnumParameters = computed(() => {
+  // 安全容差和输出格式可以放在一行
+  return otherEnumParameters.value.filter(param =>
+    param.key === 'safety_tolerance' ||
+    param.key === 'output_format'
+  );
+});
+
+// 其他枚举参数（排除一行显示的参数）
+const remainingEnumParameters = computed(() => {
+  const mobileRowKeys = mobileRowEnumParameters.value.map(param => param.key);
+  return otherEnumParameters.value.filter(param => !mobileRowKeys.includes(param.key));
 });
 
 const booleanParameters = computed(() => {
@@ -96,6 +384,17 @@ const numberParameters = computed(() => {
   return props.model.inputSchema
     .filter(param => param.type === 'number' && param.key !== 'loras');
 });
+
+// 移动端一行显示的数字参数
+const mobileRowNumberParameters = computed(() => {
+  // 图像数量和随机种子可以放在一行
+  return numberParameters.value.filter(param =>
+    param.key === 'num_images' ||
+    param.key === 'seed'
+  );
+});
+
+
 
 const loraParameters = computed(() => {
   return props.model.inputSchema
@@ -198,12 +497,8 @@ const updateLoraScale = (param: ModelParameter, index: number, value: number) =>
 
 // AI扩展提示词功能
 const isEnhancingPrompt = ref(false);
-const balanceErrorPrompt = ref(false);
 
-// 打开充值页面
-const openBillingPage = () => {
-  window.open('https://fal.ai/dashboard/billing', '_blank');
-};
+
 
 // 简单增强提示词
 const enhancePrompt = async () => {
@@ -215,7 +510,7 @@ const enhancePrompt = async () => {
   isEnhancingPrompt.value = true;
   toast.info("正在增强提示词...", { duration: 3000 });
 
-  balanceErrorPrompt.value = false;
+
 
   try {
     const SYSTEM_PROMPT = `
@@ -255,16 +550,23 @@ const enhancePrompt = async () => {
     console.error("增强提示词失败:", error);
 
     // 检查是否是余额不足错误
-    if (error.status === 403 && error.message && error.message.includes('balance')) {
-      balanceErrorPrompt.value = true;
-      toast.error("账户余额不足", {
-        description: "您的FAL.AI账户余额已用尽，请充值后再试。"
-      });
-    } else if (error.body && error.body.detail && error.body.detail.includes('Exhausted balance')) {
-      // 处理返回的JSON错误信息
-      balanceErrorPrompt.value = true;
-      toast.error("账户余额不足", {
-        description: "您的FAL.AI账户余额已用尽，请充值后再试。"
+    if ((error.status === 403 && error.message && error.message.includes('balance')) ||
+        (error.body && error.body.detail && error.body.detail.includes('Exhausted balance'))) {
+
+      // 尝试自动切换到下一个API密钥
+      const switched = handleBalanceExhaustedError();
+
+      if (switched) {
+        toast.success("已切换到下一个API密钥，正在重试...");
+        // 延迟一下再重试
+        setTimeout(() => {
+          enhancePrompt();
+        }, 1000);
+        return;
+      }
+
+      toast.error("所有API密钥余额不足", {
+        description: "请添加新的API密钥或充值您的账户。"
       });
     } else {
       toast.error("增强提示词失败", {
@@ -288,7 +590,7 @@ const generateAdvancedPrompt = async () => {
   isGeneratingAdvancedPrompt.value = true;
   toast.info("正在生成高级提示词...", { duration: 3000 });
 
-  balanceErrorPrompt.value = false;
+
 
   try {
     const SYSTEM_PROMPT = `
@@ -354,16 +656,23 @@ const generateAdvancedPrompt = async () => {
     console.error("标签结构化失败:", error);
 
     // 检查是否是余额不足错误
-    if (error.status === 403 && error.message && error.message.includes('balance')) {
-      balanceErrorPrompt.value = true;
-      toast.error("账户余额不足", {
-        description: "您的FAL.AI账户余额已用尽，请充值后再试。"
-      });
-    } else if (error.body && error.body.detail && error.body.detail.includes('Exhausted balance')) {
-      // 处理返回的JSON错误信息
-      balanceErrorPrompt.value = true;
-      toast.error("账户余额不足", {
-        description: "您的FAL.AI账户余额已用尽，请充值后再试。"
+    if ((error.status === 403 && error.message && error.message.includes('balance')) ||
+        (error.body && error.body.detail && error.body.detail.includes('Exhausted balance'))) {
+
+      // 尝试自动切换到下一个API密钥
+      const switched = handleBalanceExhaustedError();
+
+      if (switched) {
+        toast.success("已切换到下一个API密钥，正在重试...");
+        // 延迟一下再重试
+        setTimeout(() => {
+          generateAdvancedPrompt();
+        }, 1000);
+        return;
+      }
+
+      toast.error("所有API密钥余额不足", {
+        description: "请添加新的API密钥或充值您的账户。"
       });
     } else {
       toast.error("标签结构化失败", {
@@ -378,36 +687,123 @@ const generateAdvancedPrompt = async () => {
 
 <template>
   <Card class="h-full">
-    <!-- 余额不足错误提示 -->
-    <Alert v-if="balanceErrorPrompt" variant="destructive" class="mb-4 mx-4 mt-4">
-      <AlertTriangle class="h-4 w-4" />
-      <AlertTitle>账户余额不足</AlertTitle>
-      <AlertDescription>
-        <p class="mb-2">您的FAL.AI账户余额已用尽，无法继续生成提示词。请前往FAL.AI网站充值您的账户。</p>
-        <Button
-          variant="outline"
-          size="sm"
-          class="mt-2 gap-2"
-          @click="openBillingPage"
-        >
-          <ExternalLink class="h-4 w-4" />
-          前往充值
-        </Button>
-      </AlertDescription>
-    </Alert>
 
-    <CardHeader class="pb-4">
+
+    <CardHeader>
       <div class="flex justify-between items-start">
         <div>
           <CardTitle>设置</CardTitle>
           <CardDescription>为 {{ model.name }} 配置您的图像生成</CardDescription>
         </div>
-        <DefaultSettingsToolbar
-          :modelId="model.id"
-          :parameters="parameters"
-          :prompt="prompt"
-          @loadSettings="loadSettings"
-        />
+        <div class="hidden sm:block">
+          <DefaultSettingsToolbar
+            :modelId="model.id"
+            :parameters="parameters"
+            :prompt="prompt"
+            @loadSettings="loadSettings"
+          />
+        </div>
+      </div>
+
+      <!-- 移动端按钮布局 -->
+      <div class="sm:hidden grid grid-cols-2 gap-4 mt-4">
+        <div class="space-y-2">
+          <Dialog v-model:open="isDialogOpen">
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                class="w-full flex items-center justify-center gap-1"
+              >
+                <Save class="h-4 w-4" />
+                <span>保存设置</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>保存设置</DialogTitle>
+                <DialogDescription>
+                  保存当前设置以便于以后使用。
+                </DialogDescription>
+              </DialogHeader>
+              <div class="space-y-4 py-2">
+                <div class="space-y-2">
+                  <Label for="setting-name">设置名称</Label>
+                  <Input id="setting-name" v-model="settingName" placeholder="输入设置名称" />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button @click="saveCurrentSetting">保存</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <DropdownMenu v-model:open="isDropdownOpen">
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                class="w-full flex items-center justify-center gap-1"
+              >
+                <Settings class="h-4 w-4" />
+                <span>默认设置</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" class="w-56">
+              <div v-if="allSettings.length === 0" class="px-2 py-1.5 text-sm text-muted-foreground">
+                暂无保存的设置
+              </div>
+
+              <div v-else>
+                <div
+                  v-for="(setting, index) in allSettings"
+                  :key="index"
+                  class="flex items-center justify-between px-2 py-1.5 hover:bg-accent rounded-sm"
+                >
+                  <button
+                    class="flex-1 text-left text-sm"
+                    @click="loadSetting(setting)"
+                  >
+                    {{ setting.name }}
+                  </button>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="h-6 w-6"
+                    @click="deleteSetting(setting.id)"
+                  >
+                    <Trash2 class="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        <div class="space-y-2">
+          <Button
+            variant="outline"
+            size="sm"
+            class="w-full flex items-center justify-center gap-1"
+            @click="generateAdvancedPrompt"
+            :disabled="isEnhancingPrompt || isGeneratingAdvancedPrompt || !prompt.trim()"
+          >
+            <Wand2 class="h-4 w-4" />
+            <span>标签结构化</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            class="w-full flex items-center justify-center gap-1"
+            @click="enhancePrompt"
+            :disabled="isEnhancingPrompt || isGeneratingAdvancedPrompt || !prompt.trim()"
+          >
+            <Wand2 class="h-4 w-4" />
+            <span>提示词增强</span>
+          </Button>
+        </div>
       </div>
     </CardHeader>
     <CardContent class="space-y-4">
@@ -418,9 +814,9 @@ const generateAdvancedPrompt = async () => {
             <p class="text-xs mt-1 text-red-500">提示词请使用
               <Badge variant="outline" class=" bg-red-300">英文</Badge>
               <Badge variant="outline" class=" bg-red-300">标签化</Badge>
-              的形式</p>
+              形式</p>
           </div>
-          <div class="flex gap-2">
+          <div class="hidden sm:flex gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -446,8 +842,7 @@ const generateAdvancedPrompt = async () => {
         <div class="relative">
           <Textarea
             id="prompt"
-            :value="prompt"
-            @input="(e: Event) => updatePrompt((e.target as HTMLTextAreaElement).value)"
+            v-model="promptValue"
             placeholder="1girl, school uniform, smile, outdoors, high quality, masterpiece"
             class="min-h-[80px]"
           />
@@ -456,9 +851,45 @@ const generateAdvancedPrompt = async () => {
         </div>
       </div>
 
-      <!-- 枚举参数的网格布局 -->
-      <div v-if="enumParameters.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        <div v-for="param in enumParameters" :key="param.key" class="space-y-1">
+
+
+      <!-- 图像尺寸/宽高比参数 -->
+      <div v-if="hasImageSizeParam" class="w-full mb-4">
+        <ImageSizeRadioGroup
+          :value="getImageSizeValue()"
+          :options="getImageSizeOptions()"
+          :param-key="getImageSizeParamKey()"
+          @update:value="(value) => updateParameter(getImageSizeParamKey(), value)"
+        />
+      </div>
+
+      <!-- 移动端一行显示的枚举参数 -->
+      <div v-if="mobileRowEnumParameters.length > 0" class="grid grid-cols-2 gap-3 mb-3">
+        <div v-for="param in mobileRowEnumParameters" :key="param.key" class="space-y-1">
+          <Label :for="param.key" class="text-sm">{{ formatParamName(param.key) }}</Label>
+          <Select
+            :model-value="getParamValue(param)"
+            @update:model-value="(newValue: any) => updateParameter(param.key, newValue)"
+          >
+            <SelectTrigger :id="param.key">
+              <SelectValue placeholder="选择选项" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem
+                v-for="option in param.options"
+                :key="option as string"
+                :value="option as string"
+              >
+                {{ option as string }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <!-- 其他枚举参数的网格布局 -->
+      <div v-if="remainingEnumParameters.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div v-for="param in remainingEnumParameters" :key="param.key" class="space-y-1">
           <Label :for="param.key" class="text-sm">{{ formatParamName(param.key) }}</Label>
           <Select
             :model-value="getParamValue(param)"
@@ -496,34 +927,42 @@ const generateAdvancedPrompt = async () => {
         </div>
       </div>
 
-      <!-- 数字参数的网格布局 -->
-      <div v-if="numberParameters.length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <template v-for="param in numberParameters" :key="param.key">
-          <!-- 特殊处理 guidance_scale 和 num_inference_steps -->
-          <div v-if="param.key === 'guidance_scale' || param.key === 'num_inference_steps'" class="space-y-1">
-            <div class="flex items-center justify-between">
-              <Label :for="param.key" class="text-sm">
-                {{ formatParamName(param.key) }}
-              </Label>
-              <span class="text-sm w-12 text-right">
-                {{ Number(getParamValue(param) || getSliderConfig(param.key).default).toFixed(getSliderConfig(param.key).decimals) }}
-              </span>
-            </div>
-            <Slider
-              :id="param.key"
-              :min="getSliderConfig(param.key).min"
-              :max="getSliderConfig(param.key).max"
-              :step="getSliderConfig(param.key).step"
-              :model-value="[getParamValue(param) || getSliderConfig(param.key).default]"
-              @update:model-value="(values: number[] | undefined) => values && updateParameter(param.key, values[0])"
-              class="w-full"
-            />
-          </div>
-
+      <!-- 移动端一行显示的数字参数 -->
+      <div v-if="mobileRowNumberParameters.length > 0" class="grid grid-cols-2 gap-3 mb-3">
+        <template v-for="param in mobileRowNumberParameters" :key="param.key">
           <!-- 其他数字参数的默认输入 -->
-          <div v-else class="space-y-1">
+          <div class="space-y-1">
             <Label :for="param.key" class="text-sm">{{ formatParamName(param.key) }}</Label>
+            <div v-if="param.key === 'seed'" class="flex space-x-2">
+              <Input
+                :id="param.key"
+                type="number"
+                :value="getParamValue(param)"
+                class="h-8 flex-1"
+                maxlength="8"
+                max="99999999"
+                @input="(e: Event) => {
+                  const input = e.target as HTMLInputElement;
+                  const value = input.value;
+                  // 限制最多8位
+                  if (value.length > 8) {
+                    input.value = value.slice(0, 8);
+                  }
+                  updateParameter(param.key, Number(input.value));
+                }"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                class="h-8 px-2"
+                @click="generateRandomSeed"
+                title="生成新的随机种子"
+              >
+                <RefreshCw class="h-4 w-4" />
+              </Button>
+            </div>
             <Input
+              v-else
               :id="param.key"
               type="number"
               :value="getParamValue(param)"
@@ -531,6 +970,76 @@ const generateAdvancedPrompt = async () => {
               @input="(e: Event) => updateParameter(param.key, Number((e.target as HTMLInputElement).value))"
             />
           </div>
+        </template>
+      </div>
+
+      <!-- 数字参数的网格布局 -->
+      <div v-if="numberParameters.length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <template v-for="param in numberParameters" :key="param.key">
+          <!-- 跳过移动端一行显示的参数 -->
+          <template v-if="!mobileRowNumberParameters.some(p => p.key === param.key)">
+            <!-- 特殊处理 guidance_scale 和 num_inference_steps -->
+            <div v-if="param.key === 'guidance_scale' || param.key === 'num_inference_steps'" class="space-y-1">
+              <div class="flex items-center justify-between">
+                <Label :for="param.key" class="text-sm">
+                  {{ formatParamName(param.key) }}
+                </Label>
+                <span class="text-sm w-12 text-right">
+                  {{ Number(getParamValue(param) || getSliderConfig(param.key).default).toFixed(getSliderConfig(param.key).decimals) }}
+                </span>
+              </div>
+              <Slider
+                :id="param.key"
+                :min="getSliderConfig(param.key).min"
+                :max="getSliderConfig(param.key).max"
+                :step="getSliderConfig(param.key).step"
+                :model-value="[getParamValue(param) || getSliderConfig(param.key).default]"
+                @update:model-value="(values: number[] | undefined) => values && updateParameter(param.key, values[0])"
+                class="w-full"
+              />
+            </div>
+
+            <!-- 其他数字参数的默认输入 -->
+            <div v-else class="space-y-1">
+              <Label :for="param.key" class="text-sm">{{ formatParamName(param.key) }}</Label>
+              <div v-if="param.key === 'seed'" class="flex space-x-2">
+                <Input
+                  :id="param.key"
+                  type="number"
+                  :value="getParamValue(param)"
+                  class="h-8 flex-1"
+                  maxlength="8"
+                  max="99999999"
+                  @input="(e: Event) => {
+                    const input = e.target as HTMLInputElement;
+                    const value = input.value;
+                    // 限制最多8位
+                    if (value.length > 8) {
+                      input.value = value.slice(0, 8);
+                    }
+                    updateParameter(param.key, Number(input.value));
+                  }"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  class="h-8 px-2"
+                  @click="generateRandomSeed"
+                  title="生成新的随机种子"
+                >
+                  <RefreshCw class="h-4 w-4" />
+                </Button>
+              </div>
+              <Input
+                v-else
+                :id="param.key"
+                type="number"
+                :value="getParamValue(param)"
+                class="h-8"
+                @input="(e: Event) => updateParameter(param.key, Number((e.target as HTMLInputElement).value))"
+              />
+            </div>
+          </template>
         </template>
       </div>
 

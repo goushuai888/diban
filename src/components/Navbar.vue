@@ -5,6 +5,7 @@ import { RouterLink } from 'vue-router';
 import { Button } from '@/components/ui/button';
 import ApiKeyManager from './ApiKeyManager.vue';
 import NavbarSheet from './NavbarSheet.vue';
+import ClearCacheButton from './ClearCacheButton.vue';
 
 // 导航项
 const navItems = [
@@ -66,6 +67,9 @@ const isActive = (path: string) => {
       <div class="flex items-center gap-2">
         <!-- API密钥管理 -->
         <ApiKeyManager />
+
+        <!-- 清除缓存按钮 -->
+        <ClearCacheButton />
 
         <!-- 移动端菜单按钮 -->
         <div class="md:hidden">

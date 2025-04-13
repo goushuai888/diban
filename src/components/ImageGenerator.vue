@@ -7,9 +7,7 @@ import { generateImage } from "@/services/generate-image";
 import { saveGeneration } from "@/services/generation-history";
 import { toast } from 'vue-sonner';
 import { v4 as uuidv4 } from 'uuid';
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { ExternalLink, AlertTriangle } from "lucide-vue-next";
-import { Button } from "@/components/ui/button";
+
 import { currentUserId } from "@/lib/supabase";
 
 const props = defineProps<{
@@ -97,13 +95,7 @@ const result = ref<Image | null>(null);
 // 生成状态
 const isGenerating = ref(false);
 
-// 余额不足错误
-const balanceError = ref(false);
 
-// 打开充值页面
-const openBillingPage = () => {
-  window.open('https://fal.ai/dashboard/billing', '_blank');
-};
 
 // 处理加载默认设置
 const handleLoadSettings = (settings: { parameters: Record<string, any>, prompt: string }) => {
@@ -129,7 +121,6 @@ async function handleGenerate() {
   }
 
   isGenerating.value = true;
-  balanceError.value = false;
 
   try {
     // 准备参数
@@ -230,11 +221,10 @@ async function handleGenerate() {
       // 处理错误情况
       console.error("✖️ 生成失败:", errorResponse.error);
 
-      // 检查是否是余额不足错误
-      if (errorResponse.errorCode === "BALANCE_EXHAUSTED") {
-        balanceError.value = true;
-        toast.error("账户余额不足", {
-          description: "您的FAL.AI账户余额已用尽，请充值后再试。"
+      // 检查是否是所有密钥都余额不足
+      if (errorResponse.errorCode === "ALL_KEYS_EXHAUSTED") {
+        toast.error("所有API密钥余额不足", {
+          description: "请添加新的API密钥或充值您的账户。"
         });
       } else {
         toast.error("生成失败", {
@@ -247,10 +237,13 @@ async function handleGenerate() {
 
     // 检查是否是余额不足错误
     if (error.status === 403 && error.message && error.message.includes('balance')) {
-      balanceError.value = true;
-      toast.error("账户余额不足", {
-        description: "您的FAL.AI账户余额已用尽，请充值后再试。"
+      toast.error("正在切换到下一个API密钥", {
+        description: "当前API密钥余额不足，系统将自动切换。"
       });
+      // 重新尝试生成
+      setTimeout(() => {
+        handleGenerate();
+      }, 1500);
     } else {
       toast.error("生成失败", {
         description: error.message || "请检查您的API密钥和网络连接"
@@ -264,23 +257,7 @@ async function handleGenerate() {
 
 <template>
   <div class="flex flex-col space-y-8 w-full max-w-6xl mx-auto">
-    <!-- 余额不足错误提示 -->
-    <Alert v-if="balanceError" variant="destructive" class="mb-4">
-      <AlertTriangle class="h-4 w-4" />
-      <AlertTitle>账户余额不足</AlertTitle>
-      <AlertDescription>
-        <p class="mb-2">您的FAL.AI账户余额已用尽，无法继续生成图像。请前往FAL.AI网站充值您的账户。</p>
-        <Button
-          variant="outline"
-          size="sm"
-          class="mt-2 gap-2"
-          @click="openBillingPage"
-        >
-          <ExternalLink class="h-4 w-4" />
-          前往充值
-        </Button>
-      </AlertDescription>
-    </Alert>
+
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <GenerationSettings
