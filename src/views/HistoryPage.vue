@@ -48,6 +48,7 @@ const totalPages = computed(() => Math.ceil(totalItems.value / pageSize.value));
 // 跳转到指定页相关状态
 const goToPageInput = ref('');
 const isValidPageInput = computed(() => {
+  if (goToPageInput.value === '') return false;
   const pageNum = Number(goToPageInput.value);
   return !isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages.value;
 });
@@ -721,13 +722,12 @@ const clearAllHistory = async () => {
 
                 <!-- 跳转到指定页 -->
                 <div class="flex items-center gap-2 ml-2">
-                  <Input
-                    :value="goToPageInput"
-                    @input="(e: Event) => goToPageInput = (e.target as HTMLInputElement).value"
+                  <input
+                    v-model="goToPageInput"
                     type="number"
                     min="1"
                     :max="totalPages"
-                    class="w-16 h-8"
+                    class="flex h-8 w-16 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                     placeholder="页码"
                     @keyup.enter="goToPage"
                   />
