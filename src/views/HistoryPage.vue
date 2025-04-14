@@ -45,6 +45,13 @@ const pageSize = ref(20);
 const totalItems = ref(0);
 const totalPages = computed(() => Math.ceil(totalItems.value / pageSize.value));
 
+// 跳转到指定页相关状态
+const goToPageInput = ref('');
+const isValidPageInput = computed(() => {
+  const pageNum = Number(goToPageInput.value);
+  return !isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages.value;
+});
+
 // 图片加载状态
 const loadingImages = ref<Set<string>>(new Set());
 const imageMetadata = ref<Map<string, { size: number, priority: number }>>(new Map());
@@ -140,6 +147,17 @@ async function loadGenerations() {
 function changePage(page: number) {
   if (page < 1 || page > totalPages.value) return;
   currentPage.value = page;
+}
+
+// 跳转到指定页
+function goToPage() {
+  if (!isValidPageInput.value) return;
+
+  const pageNum = Number(goToPageInput.value);
+  changePage(pageNum);
+
+  // 清空输入框
+  goToPageInput.value = '';
 }
 
 // 计算属性
@@ -671,7 +689,7 @@ const clearAllHistory = async () => {
 
             <!-- 分页器 -->
             <div v-if="totalPages > 1" class="mt-6 flex justify-center">
-              <div class="flex items-center gap-1">
+              <div class="flex items-center gap-2 flex-wrap justify-center">
                 <!-- 上一页 -->
                 <Button
                   variant="outline"
@@ -700,6 +718,28 @@ const clearAllHistory = async () => {
                   下一页
                   <ChevronRight class="h-4 w-4" />
                 </Button>
+
+                <!-- 跳转到指定页 -->
+                <div class="flex items-center gap-2 ml-2">
+                  <Input
+                    :value="goToPageInput"
+                    @input="(e: Event) => goToPageInput = (e.target as HTMLInputElement).value"
+                    type="number"
+                    min="1"
+                    :max="totalPages"
+                    class="w-16 h-8"
+                    placeholder="页码"
+                    @keyup.enter="goToPage"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    @click="goToPage"
+                    :disabled="!isValidPageInput"
+                  >
+                    跳转
+                  </Button>
+                </div>
               </div>
             </div>
           </CardContent>
