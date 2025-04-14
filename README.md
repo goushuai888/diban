@@ -87,7 +87,7 @@ FalAI 是一个基于 [FAL.AI](https://fal.ai/) API 的高级图像生成应用�
    ```bash
    cp .env.example .env
    ```
-   
+
    编辑 `.env` 文件，添加必要的 API 密钥和配置
 
 4. 启动开发服务器
@@ -104,13 +104,16 @@ FalAI 是一个基于 [FAL.AI](https://fal.ai/) API 的高级图像生成应用�
 
 应用需要 FAL.AI API 密钥才能正常工作。您可以通过以下方式配置密钥：
 
-1. **环境变量**：在 `.env` 文件中设置 `VITE_FAL_API_KEYS`
-2. **用户界面**：通过应用内的 API 密钥管理界面添加密钥
+1. **本地开发环境变量**：在 `.env` 文件中设置 `VITE_FAL_API_KEYS`
+2. **Vercel 部署环境变量**：在 Vercel 项目仓库的设置页面中，进入 "Environment Variables" 部分添加 `VITE_FAL_API_KEYS` 变量
+3. **用户界面**：通过应用内的 API 密钥管理界面添加密钥
 
 多个 API 密钥可以用逗号分隔：
 ```
 VITE_FAL_API_KEYS=key1,key2,key3
 ```
+
+> **重要提示：** 如果您在 Vercel 上部署应用，必须在 Vercel 项目仓库的设置页面中配置环境变量，而不是仅仅依赖于 `.env` 文件。这是因为在构建过程中，`.env` 文件中的变量可能不会被正确地应用到部署环境中。
 
 ## 📱 移动端支持
 
