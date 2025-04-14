@@ -62,43 +62,25 @@ const imageLoading = (id: string) => {
 // 检查图片是否正在加载
 const isImageLoading = (id: string) => loadingImages.value.has(id);
 
-// 获取图片大小
-const getImageSize = async (url: string, id: string): Promise<number> => {
-  try {
-    const response = await fetch(url, { method: 'HEAD' });
-    const contentLength = response.headers.get('content-length');
-    const size = contentLength ? parseInt(contentLength, 10) : 0;
-
-    // 存储图片元数据
-    imageMetadata.value.set(id, {
-      size,
-      priority: size > 0 ? 1000000 / size : 0 // 越小优先级越高
-    });
-
-    return size;
-  } catch (error) {
-    console.error('获取图片大小失败:', error);
-    return 0;
-  }
-};
+// 不再使用 HEAD 请求获取图片大小，改为使用懒加载和 IntersectionObserver
 
 // 在生成历史加载后初始化图片加载状态
 const initImageLoadingState = () => {
   loadingImages.value.clear();
   imageMetadata.value.clear();
 
-  // 先获取所有图片的大小
-  const sizePromises = generations.value.map(gen => {
+  // 初始化所有图片的加载状态
+  generations.value.forEach((gen, index) => {
     if (gen.output.images[0].url) {
-      return getImageSize(gen.output.images[0].url, gen.id);
+      // 使用索引作为优先级，这样图片将按照它们在列表中的顺序加载
+      imageMetadata.value.set(gen.id, {
+        size: 0,
+        priority: index
+      });
     }
-    return Promise.resolve(0);
   });
 
-  // 当所有大小获取完成后，按照大小排序
-  Promise.all(sizePromises).then(() => {
-    console.log('所有图片大小获取完成');
-  });
+  console.log('图片加载状态初始化完成');
 };
 
 // 响应式设计
@@ -237,18 +219,7 @@ const openLightbox = async (generation: Generation, imageIndex: number = 0) => {
 
   // 设置加载状态
   isLightboxImageLoading.value = true;
-  lightboxImageSize.value = 0;
-
-  // 获取图片大小
-  if (generation.output.images[imageIndex]?.url) {
-    try {
-      const response = await fetch(generation.output.images[imageIndex].url, { method: 'HEAD' });
-      const contentLength = response.headers.get('content-length');
-      lightboxImageSize.value = contentLength ? parseInt(contentLength, 10) : 0;
-    } catch (error) {
-      console.error('获取Lightbox图片大小失败:', error);
-    }
-  }
+  lightboxImageSize.value = 0; // 不再使用大小信息，但保留变量以避免其他代码报错
 
   currentGeneration.value = generation;
   currentImageIndex.value = imageIndex;
@@ -322,16 +293,7 @@ const formatFullDate = (timestamp: number) => {
   return format(new Date(timestamp), 'yyyy-MM-dd HH:mm:ss', { locale: zhCN });
 };
 
-// 格式化文件大小
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 B';
-
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-};
+// 不再需要格式化文件大小的函数
 
 const nextImage = async () => {
   if (!hasNextImage.value) return;
@@ -345,16 +307,8 @@ const nextImage = async () => {
     if (currentGeneration.value) {
       isNSFW.value = currentGeneration.value.output.has_nsfw_concepts?.[currentImageIndex.value] || false;
 
-      // 获取图片大小
-      if (currentGeneration.value.output.images[currentImageIndex.value]?.url) {
-        try {
-          const response = await fetch(currentGeneration.value.output.images[currentImageIndex.value].url, { method: 'HEAD' });
-          const contentLength = response.headers.get('content-length');
-          lightboxImageSize.value = contentLength ? parseInt(contentLength, 10) : 0;
-        } catch (error) {
-          console.error('获取Lightbox图片大小失败:', error);
-        }
-      }
+      // 不再获取图片大小
+      lightboxImageSize.value = 0; // 保留变量以避免其他代码报错
     }
   }
   // 如果是最后一张图片，切换到下一个生成记录
@@ -390,16 +344,8 @@ const previousImage = async () => {
     if (currentGeneration.value) {
       isNSFW.value = currentGeneration.value.output.has_nsfw_concepts?.[currentImageIndex.value] || false;
 
-      // 获取图片大小
-      if (currentGeneration.value.output.images[currentImageIndex.value]?.url) {
-        try {
-          const response = await fetch(currentGeneration.value.output.images[currentImageIndex.value].url, { method: 'HEAD' });
-          const contentLength = response.headers.get('content-length');
-          lightboxImageSize.value = contentLength ? parseInt(contentLength, 10) : 0;
-        } catch (error) {
-          console.error('获取Lightbox图片大小失败:', error);
-        }
-      }
+      // 不再获取图片大小
+      lightboxImageSize.value = 0; // 保留变量以避免其他代码报错
     }
   }
   // 如果是第一张图片，切换到上一个生成记录的最后一张图片
@@ -660,12 +606,12 @@ const clearAllHistory = async () => {
                     class="h-full w-full absolute inset-0 z-10"
                   />
 
-                  <!-- 图片大小信息 -->
+                  <!-- 图片加载中提示 -->
                   <div
-                    v-if="isImageLoading(generation.id) && imageMetadata.get(generation.id)"
+                    v-if="isImageLoading(generation.id)"
                     class="absolute bottom-2 left-2 z-30 bg-black/50 text-white text-xs px-2 py-1 rounded-md"
                   >
-                    {{ formatFileSize(imageMetadata.get(generation.id)?.size || 0) }}
+                    加载中...
                   </div>
 
                   <!-- 图片 -->
@@ -904,9 +850,6 @@ const clearAllHistory = async () => {
                     class="h-40 w-40 mx-auto mb-4 rounded-lg"
                   />
                   <p class="text-sm text-muted-foreground">正在加载图片...</p>
-                  <p class="text-xs text-muted-foreground mt-1" v-if="lightboxImageSize > 0">
-                    {{ formatFileSize(lightboxImageSize) }}
-                  </p>
                 </div>
               </div>
 
