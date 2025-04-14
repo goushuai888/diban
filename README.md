@@ -2,7 +2,7 @@
 
 FalAI 是一个基于 [FAL.AI](https://fal.ai/) API 的高级图像生成应用，提供直观的用户界面，让用户能够轻松创建、管理和分享 AI 生成的图像。该应用采用 Vue 3 和 ShadcnUI 构建，支持响应式设计，确保在桌面端和移动端都有出色的用户体验。
 
-![FalAI 应用截图](public/screenshot.png)
+![FalAI 应用截图](https://cdn.ldstatic.com/optimized/4X/7/7/3/7732c03de520187cd842164a6d13baf8d4213c29_2_1350x998.jpeg)
 
 ## 🌟 主要特点
 
