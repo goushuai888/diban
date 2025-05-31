@@ -191,14 +191,12 @@ export async function loadApiKeysFromBlob(): Promise<ApiKeyInfo[]> {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
-      if (line && line.startsWith('fal.')) {
-        blobKeys.push({
-          key: line,
-          name: `Blob密钥 ${i + 1}`,
-          isSystem: true,
-          group: 'Blob组'
-        });
-      }
+      blobKeys.push({
+        key: line,
+        name: `密钥 ${i + 1}`,
+        isSystem: true,
+        group: '默认组'
+      });
     }
 
     console.log(`从 Blob 成功加载 ${blobKeys.length} 个 API 密钥`);
