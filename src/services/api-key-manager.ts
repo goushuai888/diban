@@ -1,15 +1,10 @@
 import { fal } from "@fal-ai/client";
 import { toast } from "vue-sonner";
-import { list } from "@vercel/blob";
 
 // 常量
 const API_KEYS_STORAGE_KEY = 'fal-ai-api-keys';
 const ACTIVE_KEY_INDEX_STORAGE_KEY = 'fal-ai-active-key-index';
 const ACTIVE_KEY_STORAGE_KEY = 'fal-ai-active-key';
-
-// Vercel Blob 配置
-const BLOB_READ_WRITE_TOKEN = import.meta.env.VITE_BLOB_READ_WRITE_TOKEN || '';
-const BLOB_KEY_FILE_NAME = 'key.txt'; // 固定的密钥文件名
 
 // 类型
 interface ApiKeyInfo {
@@ -155,49 +150,27 @@ export function handleBalanceExhaustedError(): boolean {
  * 只有在 localStorage 中不存在密钥时才会调用
  */
 export async function loadApiKeysFromBlob(): Promise<ApiKeyInfo[]> {
-  if (!BLOB_READ_WRITE_TOKEN) {
-    console.log('未配置 BLOB_READ_WRITE_TOKEN，跳过从 Blob 加载密钥');
-    return [];
-  }
-
   try {
     console.log('正在从 Vercel Blob 获取 API 密钥...');
 
-    // 使用 list API 查找密钥文件
-    const { blobs } = await list({
-      token: BLOB_READ_WRITE_TOKEN,
-      prefix: BLOB_KEY_FILE_NAME
-    });
-
-    // 查找密钥文件
-    const keyFile = blobs.find(blob => blob.pathname === BLOB_KEY_FILE_NAME);
-
-    if (!keyFile) {
-      console.log(`未找到密钥文件: ${BLOB_KEY_FILE_NAME}`);
-      return [];
-    }
-
-    // 直接通过 URL 获取文件内容
-    const response = await fetch(keyFile.url);
+    // 调用 Vercel 函数代理 API
+    const response = await fetch('/api/blob-keys');
 
     if (!response.ok) {
+      if (response.status === 404) {
+        console.log('未找到密钥文件');
+        return [];
+      }
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const text = await response.text();
-    const lines = text.split('\n').filter(line => line.trim());
+    const data = await response.json();
 
-    const blobKeys: ApiKeyInfo[] = [];
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      blobKeys.push({
-        key: line,
-        name: `密钥 ${i + 1}`,
-        isSystem: true,
-        group: '默认组'
-      });
+    if (data.error) {
+      throw new Error(data.error);
     }
+
+    const blobKeys: ApiKeyInfo[] = data.keys || [];
 
     console.log(`从 Blob 成功加载 ${blobKeys.length} 个 API 密钥`);
     return blobKeys;
