@@ -12,6 +12,7 @@ import { toast } from 'vue-sonner';
 import { fal } from "@fal-ai/client";
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { initializeApiKeys } from '@/services/api-key-manager';
 
 // 常量
 const API_KEYS_STORAGE_KEY = 'fal-ai-api-keys';
@@ -124,21 +125,10 @@ function toggleGroupExpanded(group: string) {
 
 // 加载API密钥
 onMounted(async () => {
-  // 加载本地存储的密钥
-  const storedKeys = localStorage.getItem(API_KEYS_STORAGE_KEY);
-  const storedActiveIndex = localStorage.getItem(ACTIVE_KEY_INDEX_STORAGE_KEY);
+  // 使用新的初始化函数，它会自动处理 localStorage 和 Blob 的加载逻辑
+  let keys: ApiKeyInfo[] = await initializeApiKeys();
 
-  let keys: ApiKeyInfo[] = [];
-
-  if (storedKeys) {
-    try {
-      keys = JSON.parse(storedKeys);
-    } catch (error) {
-      console.error('解析保存的API密钥失败:', error);
-    }
-  }
-
-  // 从环境变量加载系统密钥
+  // 从环境变量加载系统密钥（保持原有逻辑）
   if (CONFIG_FILE_PATH) {
     const systemKeys = CONFIG_FILE_PATH.split(',').map((key: string) => key.trim()).filter(Boolean);
 
@@ -157,6 +147,9 @@ onMounted(async () => {
   }
 
   apiKeys.value = keys;
+
+  // 获取存储的活动密钥索引
+  const storedActiveIndex = localStorage.getItem(ACTIVE_KEY_INDEX_STORAGE_KEY);
 
   // 默认展开所有分组
   const groupSet = new Set<string>();

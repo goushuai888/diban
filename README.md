@@ -106,12 +106,34 @@ FalAI 是一个基于 [FAL.AI](https://fal.ai/) API 的高级图像生成应用�
 
 1. **本地开发环境变量**：在 `.env` 文件中设置 `VITE_FAL_API_KEYS`
 2. **Vercel 部署环境变量**：在 Vercel 项目仓库的设置页面中，进入 "Environment Variables" 部分添加 `VITE_FAL_API_KEYS` 变量
-3. **用户界面**：通过应用内的 API 密钥管理界面添加密钥
+3. **Vercel Blob 存储**：通过 `VITE_BLOB_URL` 环境变量配置 Blob 存储的密钥文件 URL
+4. **用户界面**：通过应用内的 API 密钥管理界面添加密钥
+
+### 环境变量配置
 
 多个 API 密钥可以用逗号分隔：
 ```
 VITE_FAL_API_KEYS=key1,key2,key3
 ```
+
+### Vercel Blob 配置
+
+如果您使用 Vercel Blob 存储密钥文件，请配置：
+```
+VITE_BLOB_URL=https://your-blob-url.vercel-storage.com/key.txt
+```
+
+密钥文件格式（每行一个密钥）：
+```
+fal.xxxxxx
+fal.yyyyyy
+fal.zzzzzz
+```
+
+**加载优先级**：
+1. 应用首先检查 localStorage 中是否已有密钥
+2. 如果 localStorage 为空，则从 Vercel Blob 获取密钥并缓存到 localStorage
+3. 最后加载环境变量中的密钥
 
 > **重要提示：** 如果您在 Vercel 上部署应用，必须在 Vercel 项目仓库的设置页面中配置环境变量，而不是仅仅依赖于 `.env` 文件。这是因为在构建过程中，`.env` 文件中的变量可能不会被正确地应用到部署环境中。
 

@@ -6,6 +6,9 @@ const API_KEYS_STORAGE_KEY = 'fal-ai-api-keys';
 const ACTIVE_KEY_INDEX_STORAGE_KEY = 'fal-ai-active-key-index';
 const ACTIVE_KEY_STORAGE_KEY = 'fal-ai-active-key';
 
+// Vercel Blob 配置
+const BLOB_URL = import.meta.env.VITE_BLOB_URL || '';
+
 // 类型
 interface ApiKeyInfo {
   key: string;
@@ -54,7 +57,7 @@ export function getActiveKeyIndex(): number {
  */
 export function setActiveKey(index: number): boolean {
   const keys = getAllApiKeys();
-  
+
   if (index >= 0 && index < keys.length) {
     // 检查密钥是否失效
     if (keys[index].isValid === false) {
@@ -67,10 +70,10 @@ export function setActiveKey(index: number): boolean {
     configureFalClient(key);
     localStorage.setItem(ACTIVE_KEY_INDEX_STORAGE_KEY, index.toString());
     localStorage.setItem(ACTIVE_KEY_STORAGE_KEY, key);
-    
+
     return true;
   }
-  
+
   return false;
 }
 
@@ -88,11 +91,11 @@ export function configureFalClient(apiKey: string) {
  */
 export function markKeyAsInvalid(index: number, reason: string = 'unknown'): void {
   const keys = getAllApiKeys();
-  
+
   if (index >= 0 && index < keys.length) {
     keys[index].isValid = false;
     keys[index].invalidReason = reason;
-    
+
     // 保存更新后的密钥列表
     localStorage.setItem(API_KEYS_STORAGE_KEY, JSON.stringify(keys));
   }
@@ -106,17 +109,17 @@ export function markKeyAsInvalid(index: number, reason: string = 'unknown'): voi
 export function switchToNextValidKey(): boolean {
   const keys = getAllApiKeys();
   if (keys.length === 0) return false;
-  
+
   const currentIndex = getActiveKeyIndex();
   if (currentIndex === -1) return false;
-  
+
   // 标记当前密钥为无效（余额不足）
   markKeyAsInvalid(currentIndex, 'balance_exhausted');
-  
+
   // 从下一个索引开始查找有效的密钥
   let nextIndex = (currentIndex + 1) % keys.length;
   const startIndex = nextIndex; // 记录起始索引，防止无限循环
-  
+
   do {
     // 如果找到有效的密钥，则激活它
     if (keys[nextIndex].isValid !== false) {
@@ -126,11 +129,11 @@ export function switchToNextValidKey(): boolean {
         return true;
       }
     }
-    
+
     // 移动到下一个索引
     nextIndex = (nextIndex + 1) % keys.length;
   } while (nextIndex !== startIndex); // 如果已经遍历了所有密钥，则退出循环
-  
+
   // 如果没有找到有效的密钥，则提示用户
   toast.error('所有API密钥都已失效，请添加新的API密钥');
   return false;
@@ -143,4 +146,72 @@ export function switchToNextValidKey(): boolean {
  */
 export function handleBalanceExhaustedError(): boolean {
   return switchToNextValidKey();
+}
+
+/**
+ * 从 Vercel Blob 获取 API 密钥
+ * 只有在 localStorage 中不存在密钥时才会调用
+ */
+export async function loadApiKeysFromBlob(): Promise<ApiKeyInfo[]> {
+  if (!BLOB_URL) {
+    console.log('未配置 BLOB_URL，跳过从 Blob 加载密钥');
+    return [];
+  }
+
+  try {
+    console.log('正在从 Vercel Blob 获取 API 密钥...');
+    const response = await fetch(BLOB_URL);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const text = await response.text();
+    const lines = text.split('\n').filter(line => line.trim());
+
+    const blobKeys: ApiKeyInfo[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      blobKeys.push({
+        key: line,
+        name: `密钥 ${i + 1}`,
+        isSystem: true,
+        group: '默认组'
+      });
+    }
+
+    console.log(`从 Blob 成功加载 ${blobKeys.length} 个 API 密钥`);
+    return blobKeys;
+
+  } catch (error) {
+    console.error('从 Vercel Blob 获取 API 密钥失败:', error);
+    return [];
+  }
+}
+
+/**
+ * 初始化 API 密钥
+ * 检查 localStorage，如果不存在则从 Blob 加载
+ */
+export async function initializeApiKeys(): Promise<ApiKeyInfo[]> {
+  // 首先检查 localStorage 中是否已有密钥
+  const existingKeys = getAllApiKeys();
+
+  if (existingKeys.length > 0) {
+    console.log('localStorage 中已存在 API 密钥，跳过 Blob 加载');
+    return existingKeys;
+  }
+
+  // 如果 localStorage 中没有密钥，则从 Blob 加载
+  console.log('localStorage 中无 API 密钥，尝试从 Blob 加载');
+  const blobKeys = await loadApiKeysFromBlob();
+
+  if (blobKeys.length > 0) {
+    // 将从 Blob 获取的密钥保存到 localStorage
+    localStorage.setItem(API_KEYS_STORAGE_KEY, JSON.stringify(blobKeys));
+    console.log(`已将 ${blobKeys.length} 个密钥从 Blob 缓存到 localStorage`);
+  }
+
+  return blobKeys;
 }
