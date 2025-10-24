@@ -4,7 +4,6 @@ import { useRoute } from 'vue-router';
 import { RouterLink } from 'vue-router';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { modelCategories } from '@/router/models';
 import { Menu } from 'lucide-vue-next';
 
 // 导航项
@@ -74,35 +73,10 @@ const closeSheet = () => {
             {{ item.label }}
           </RouterLink>
 
-          <!-- 模型库 -->
-          <div class="py-2">
-            <div class="font-medium mb-2">模型库</div>
-            <div class="pl-4 space-y-2">
-              <template v-for="(category, index) in modelCategories" :key="index">
-                <template v-for="model in category.models.slice(0, 3)" :key="model.id">
-                  <RouterLink
-                    :to="`/models/${model.id.replace(/\//g, '-')}`"
-                    class="block py-1 text-sm text-muted-foreground hover:text-foreground"
-                    @click="closeSheet"
-                  >
-                    {{ model.name }}
-                  </RouterLink>
-                </template>
-              </template>
-              <RouterLink
-                to="/models"
-                class="block py-1 text-sm font-medium text-primary"
-                @click="closeSheet"
-              >
-                查看全部模型
-              </RouterLink>
-            </div>
-          </div>
-
-          <!-- 其他链接可以在这里添加 -->
+          <!-- 底部说明 -->
           <div class="pt-4 border-t">
             <div class="text-sm text-muted-foreground">
-              使用 Fal.AI 生成您的图像
+              安全可靠的特斯拉 FSD 权限交易平台
             </div>
           </div>
         </nav>

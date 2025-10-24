@@ -1,13 +1,34 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router';
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { modelCategories } from "@/router/models";
-import { ArrowRight, Sparkles, Zap, Image } from "lucide-vue-next";
+import { ArrowRight, Sparkles, Zap, Image, Shield, DollarSign, Clock } from "lucide-vue-next";
 
-// 取前3个模型作为推荐
-const featuredModels = modelCategories.flatMap(cat => cat.models).slice(0, 3);
+// 热门 FSD 权限交易套餐
+const featuredPackages = [
+  {
+    id: 'fsd-monthly',
+    title: 'FSD 月租',
+    price: '¥1,200',
+    period: '/月',
+    features: ['随时退租', '灵活方便', '适合体验用户']
+  },
+  {
+    id: 'fsd-transfer',
+    title: 'FSD 永久转移',
+    price: '¥48,000',
+    period: '一次性',
+    features: ['永久使用', '可转让', '保值增值']
+  },
+  {
+    id: 'fsd-yearly',
+    title: 'FSD 年租',
+    price: '¥12,800',
+    period: '/年',
+    features: ['性价比高', '长期使用', '省心省力']
+  }
+];
 </script>
 
 <template>
@@ -16,16 +37,16 @@ const featuredModels = modelCategories.flatMap(cat => cat.models).slice(0, 3);
     <div class="flex flex-col items-center space-y-12">
       <!-- 英雄区域 -->
       <div class="w-full max-w-5xl text-center py-12">
-        <h1 class="text-5xl font-bold mb-6">FAL.AI Web 界面</h1>
+        <h1 class="text-5xl font-bold mb-6">特斯拉 FSD 权限交易平台</h1>
         <p class="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-          使用FAL.AI强大的AI模型生成惊人的图像，简单、快速、高效
+          安全、便捷的特斯拉 FSD 完全自动驾驶权限担保交易服务，让您的特斯拉解锁智能驾驶新体验
         </p>
         <div class="flex flex-wrap justify-center gap-4">
           <Button size="lg" asChild>
-            <RouterLink to="/models">浏览所有模型</RouterLink>
+            <RouterLink to="/tradinghall">进入交易大厅</RouterLink>
           </Button>
           <Button size="lg" variant="outline" asChild>
-            <RouterLink to="/models/fal-ai-flux-pro-v1.1">开始生成</RouterLink>
+            <RouterLink to="/signup">立即注册</RouterLink>
           </Button>
         </div>
       </div>
@@ -37,65 +58,70 @@ const featuredModels = modelCategories.flatMap(cat => cat.models).slice(0, 3);
           <Card>
             <CardHeader>
               <Sparkles class="h-8 w-8 text-primary mb-2" />
-              <CardTitle>高质量生成</CardTitle>
+              <CardTitle>担保交易</CardTitle>
             </CardHeader>
             <CardContent>
-              <p class="text-muted-foreground">使用最新的AI模型生成高质量、高清晰度的图像</p>
+              <p class="text-muted-foreground">平台全程担保，确保买卖双方权益，资金安全有保障</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader>
               <Zap class="h-8 w-8 text-primary mb-2" />
-              <CardTitle>快速响应</CardTitle>
+              <CardTitle>极速转移</CardTitle>
             </CardHeader>
             <CardContent>
-              <p class="text-muted-foreground">优化的API调用和并行处理，确保生成速度极快</p>
+              <p class="text-muted-foreground">专业团队快速处理，FSD 权限转移流程高效便捷</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader>
               <Image class="h-8 w-8 text-primary mb-2" />
-              <CardTitle>多样化模型</CardTitle>
+              <CardTitle>透明定价</CardTitle>
             </CardHeader>
             <CardContent>
-              <p class="text-muted-foreground">支持多种模型和参数调整，满足不同需求</p>
+              <p class="text-muted-foreground">市场化定价机制，买卖双方自由协商，公开透明</p>
             </CardContent>
           </Card>
         </div>
       </div>
 
-      <!-- 推荐模型 -->
+      <!-- 热门套餐 -->
       <div class="w-full max-w-5xl">
         <div class="flex justify-between items-center mb-6">
-          <h2 class="text-3xl font-bold">推荐模型</h2>
+          <h2 class="text-3xl font-bold">热门套餐</h2>
           <Button variant="ghost" asChild>
-            <RouterLink to="/models" class="flex items-center gap-2">
+            <RouterLink to="/tradinghall" class="flex items-center gap-2">
               查看全部 <ArrowRight class="h-4 w-4" />
             </RouterLink>
           </Button>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <RouterLink
-            v-for="model in featuredModels"
-            :key="model.id"
-            :to="`/models/${model.id.replace(/\//g, '-')}`"
-            class="block"
+          <Card
+            v-for="pkg in featuredPackages"
+            :key="pkg.id"
+            class="h-full transition-all duration-200 hover:scale-[1.02] hover:shadow-lg"
           >
-            <Card class="h-full transition-all duration-200 hover:scale-[1.02] hover:shadow-lg">
-              <CardHeader>
-                <CardTitle>{{ model.name }}</CardTitle>
-                <CardDescription class="truncate">{{ model.id }}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p class="text-sm text-muted-foreground">
-                  {{ model.inputSchema.length }} 输入参数 | {{ model.outputSchema.length }} 输出参数
-                </p>
-              </CardContent>
-              <CardFooter>
-                <Button variant="secondary" class="w-full">开始生成</Button>
-              </CardFooter>
-            </Card>
-          </RouterLink>
+            <CardHeader>
+              <CardTitle>{{ pkg.title }}</CardTitle>
+              <div class="flex items-baseline gap-1 mt-2">
+                <span class="text-3xl font-bold text-primary">{{ pkg.price }}</span>
+                <span class="text-sm text-muted-foreground">{{ pkg.period }}</span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ul class="space-y-2">
+                <li v-for="(feature, index) in pkg.features" :key="index" class="flex items-center gap-2 text-sm">
+                  <Shield class="h-4 w-4 text-primary" />
+                  <span>{{ feature }}</span>
+                </li>
+              </ul>
+            </CardContent>
+            <CardFooter>
+              <Button variant="secondary" class="w-full" asChild>
+                <RouterLink to="/tradinghall">立即购买</RouterLink>
+              </Button>
+            </CardFooter>
+          </Card>
         </div>
       </div>
     </div>

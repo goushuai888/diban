@@ -5,8 +5,21 @@ import { v4 as uuidv4 } from 'uuid';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
+// 检查 Supabase 是否已配置
+const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+
+// 如果未配置，使用占位符避免报错
+const placeholderUrl = 'https://placeholder.supabase.co';
+const placeholderKey = 'placeholder-key';
+
 // 创建Supabase客户端
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(
+  isSupabaseConfigured ? supabaseUrl : placeholderUrl,
+  isSupabaseConfigured ? supabaseAnonKey : placeholderKey
+);
+
+// 导出配置状态
+export const isSupabaseEnabled = isSupabaseConfigured;
 
 // 获取或创建用户ID
 export const getUserId = (): string => {

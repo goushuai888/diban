@@ -1,166 +1,230 @@
-# FalAI 图像生成应用
+# 特斯拉 FSD 权限交易平台
 
-FalAI 是一个基于 [FAL.AI](https://fal.ai/) API 的高级图像生成应用，提供直观的用户界面，让用户能够轻松创建、管理和分享 AI 生成的图像。该应用采用 Vue 3 和 ShadcnUI 构建，支持响应式设计，确保在桌面端和移动端都有出色的用户体验。
+> 安全、便捷的特斯拉 FSD 完全自动驾驶权限担保交易服务
 
-![FalAI 应用截图](https://cdn.ldstatic.com/optimized/4X/7/7/3/7732c03de520187cd842164a6d13baf8d4213c29_2_1350x998.jpeg)
+[![Vue 3](https://img.shields.io/badge/Vue-3.5-4FC08D?logo=vue.js)](https://vuejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-6.0-646CFF?logo=vite)](https://vitejs.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.0-06B6D4?logo=tailwindcss)](https://tailwindcss.com/)
 
-## 🌟 主要特点
+---
 
-- **多模型支持**：集成了多种 FAL.AI 图像生成模型，包括 Flux Pro、Flux Pro Ultra 和 LoRA 模型
-- **高级提示词工具**：内置 AI 提示词增强和标签结构化功能，帮助用户创建更有效的提示词
-- **自定义设置**：支持保存和加载自定义生成设置，提高工作效率
-- **生成历史**：完整的生成历史记录，支持分页浏览、搜索和筛选
-- **API 密钥管理**：灵活的 API 密钥管理系统，支持多密钥配置和自动切换
-- **响应式设计**：完美适配桌面端和移动端设备
-- **优化的图像显示**：支持多图预览、懒加载和渐进式加载
-- **NSFW 内容管理**：内置 NSFW 内容检测和模糊处理
+## 📖 项目简介
 
-## 🚀 功能亮点
+本平台致力于为特斯拉车主提供安全、透明的 FSD（Full Self-Driving）完全自动驾驶权限交易服务。支持 FSD 权限的买卖、出租等多种交易方式，平台提供全程担保，确保买卖双方权益。
 
-### 图像生成
+### 核心功能
 
-- 支持多种图像尺寸和宽高比
-- 可调整的生成参数（步数、引导系数等）
-- 支持一次生成多张图片（最多 4 张）
-- 实时显示生成进度和加载状态
-- 支持 LoRA 模型的权重调整
+- 🛡️ **担保交易**：平台全程担保，资金安全有保障
+- ⚡ **极速转移**：专业团队快速处理，FSD 权限转移流程高效便捷
+- 💎 **透明定价**：市场化定价机制，买卖双方自由协商，公开透明
+- 📱 **响应式设计**：支持桌面端和移动端，随时随地交易
+- 🔐 **用户认证**：Supabase 认证系统，安全可靠
 
-### 提示词工具
+---
 
-- AI 提示词增强功能，基于 Claude 3.7 Sonnet 模型
-- 提示词标签结构化工具，优化生成效果
-- 提示词输入建议和最佳实践提示
-
-### 图像管理
-
-- 缩略图预览行，便于浏览多张生成的图片
-- 按原始比例显示图片，保持图像完整性
-- 一键下载生成的图片
-- 详细的图像元数据显示（尺寸、种子值等）
-
-### 历史记录
-
-- 完整的生成历史浏览功能
-- 支持按模型和提示词搜索
-- 分页功能，支持浏览大量历史记录
-- 图片预览和详细信息查看
-
-### API 密钥管理
-
-- 支持添加和管理多个 FAL.AI API 密钥
-- 密钥分组功能，便于组织管理
-- 一键测试密钥可用性
-- 当密钥余额不足时自动切换到下一个可用密钥
-
-## 🛠️ 技术栈
-
-- **前端框架**：Vue 3 + TypeScript
-- **UI 组件**：ShadcnUI + Tailwind CSS
-- **状态管理**：Vue Composition API
-- **路由**：Vue Router
-- **API 集成**：FAL.AI JavaScript SDK
-- **数据存储**：Supabase + 本地存储
-- **构建工具**：Vite
-- **部署**：Vercel
-
-## 📦 安装与使用
+## 🚀 快速开始
 
 ### 环境要求
 
-- Node.js 18.0 或更高版本
-- pnpm 8.0 或更高版本
+- Node.js >= 18.0
+- pnpm >= 8.0
+- TypeScript ~5.7
 
-### 安装步骤
+### 安装依赖
 
-1. 克隆仓库
-   ```bash
-   git clone https://github.com/yourusername/falai-app.git
-   cd falai-app
-   ```
-
-2. 安装依赖
-   ```bash
-   pnpm install
-   ```
-
-3. 配置环境变量
-   ```bash
-   cp .env.example .env
-   ```
-
-   编辑 `.env` 文件，添加必要的 API 密钥和配置
-
-4. 启动开发服务器
-   ```bash
-   pnpm dev
-   ```
-
-5. 构建生产版本
-   ```bash
-   pnpm build
-   ```
-
-## 🔑 API 密钥配置
-
-应用需要 FAL.AI API 密钥才能正常工作。您可以通过以下方式配置密钥：
-
-1. **本地开发环境变量**：在 `.env` 文件中设置 `VITE_FAL_API_KEYS`
-2. **Vercel 部署环境变量**：在 Vercel 项目仓库的设置页面中，进入 "Environment Variables" 部分添加 `VITE_FAL_API_KEYS` 变量
-3. **Vercel Blob 存储**：通过 `BLOB_READ_WRITE_TOKEN` 服务端环境变量配置 Blob 存储访问令牌
-4. **用户界面**：通过应用内的 API 密钥管理界面添加密钥
-
-### 环境变量配置
-
-多个 API 密钥可以用逗号分隔：
-```
-VITE_FAL_API_KEYS=key1,key2,key3
+```bash
+pnpm install
 ```
 
-### Vercel Blob 配置
+### 配置环境变量
 
-如果您使用 Vercel Blob 存储密钥文件，请配置服务端环境变量：
+创建 `.env` 文件并填入以下变量：
+
+```env
+# Supabase 配置
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Vercel Blob 存储（可选）
+BLOB_READ_WRITE_TOKEN=your_blob_token
 ```
-BLOB_READ_WRITE_TOKEN=vercel_blob_rw_xxxxxxxxxx
+
+### 启动开发服务器
+
+```bash
+pnpm dev
 ```
 
-在 Vercel Blob 存储中上传名为 `key.txt` 的文件，格式（每行一个密钥）：
+访问 [http://localhost:5173](http://localhost:5173) 查看应用。
+
+### 构建生产版本
+
+```bash
+pnpm build
 ```
-fal.xxxxxx
-fal.yyyyyy
-fal.zzzzzz
+
+### 预览生产构建
+
+```bash
+pnpm preview
 ```
 
-**注意**：
-- `BLOB_READ_WRITE_TOKEN` 是服务端环境变量，不需要 `VITE_` 前缀
-- 前端通过 `/api/blob-keys` 接口获取密钥，避免跨域问题
-- Token 只在服务端使用，提高安全性
+---
 
-**加载优先级**：
-1. 应用首先检查 localStorage 中是否已有密钥
-2. 如果 localStorage 为空，则从 Vercel Blob 获取密钥并缓存到 localStorage
-3. 最后加载环境变量中的密钥
+## 🏗️ 技术架构
 
-> **重要提示：** 如果您在 Vercel 上部署应用，必须在 Vercel 项目仓库的设置页面中配置环境变量，而不是仅仅依赖于 `.env` 文件。这是因为在构建过程中，`.env` 文件中的变量可能不会被正确地应用到部署环境中。
+### 前端技术栈
 
-## 📱 移动端支持
+- **框架**：Vue 3 (Composition API)
+- **语言**：TypeScript
+- **构建工具**：Vite 6.0
+- **样式**：Tailwind CSS 4.0
+- **UI 组件库**：Shadcn-Vue (New York 风格)
+- **路由**：Vue Router
+- **图标**：Lucide Icons
 
-应用完全支持移动设备，提供了针对移动端优化的界面：
+### 后端服务
 
-- 自适应布局，确保在各种屏幕尺寸上的良好显示
-- 触摸友好的控件和交互
-- 针对移动网络优化的图片加载策略
+- **认证**：Supabase Auth
+- **数据库**：Supabase PostgreSQL
+- **Serverless 函数**：Vercel Functions
+- **存储**：Vercel Blob Storage
 
-## 🤝 贡献
+### 部署平台
 
-欢迎贡献代码、报告问题或提出改进建议！请查看 [CONTRIBUTING.md](CONTRIBUTING.md) 了解更多信息。
+- **托管**：Vercel
+- **域名**：自定义域名支持
+- **CI/CD**：Git 推送自动部署
 
-## 📄 许可证
+---
 
-本项目采用 MIT 许可证 - 详情请查看 [LICENSE](LICENSE) 文件。
+## 📂 项目结构
 
-## 🙏 致谢
+```
+falai-app/
+├── src/
+│   ├── views/              # 页面组件
+│   │   ├── Home.vue        # 首页
+│   │   ├── TradingHallPage.vue  # 交易大厅
+│   │   ├── LoginPage.vue   # 登录页
+│   │   ├── SignUpPage.vue  # 注册页
+│   │   └── SettingsPage.vue # 设置页
+│   ├── components/         # UI 组件
+│   │   ├── ui/            # Shadcn-Vue 基础组件
+│   │   ├── Navbar.vue     # 导航栏
+│   │   ├── NavbarSheet.vue # 移动端侧边栏
+│   │   └── UserMenu.vue   # 用户菜单
+│   ├── router/            # 路由配置
+│   ├── services/          # 业务服务层
+│   │   └── auth.ts       # 认证服务
+│   ├── lib/              # 工具库
+│   │   ├── supabase.ts   # Supabase 客户端
+│   │   └── utils.ts      # 工具函数
+│   └── types/            # TypeScript 类型定义
+├── api/                  # Vercel Serverless 函数
+├── public/               # 静态资源
+└── vercel.json          # Vercel 部署配置
+```
 
-- [FAL.AI](https://fal.ai/) 提供强大的 AI 图像生成 API
-- [ShadcnUI](https://ui.shadcn.com/) 提供美观实用的 UI 组件
-- [Vue 团队](https://vuejs.org/) 开发了出色的前端框架
-- 所有为本项目做出贡献的开发者
+---
+
+## 🎨 UI 设计
+
+### 设计风格
+
+- **极简黑白配色**：Shadcn-Vue New York 风格
+- **专业商务感**：适合金融交易平台
+- **响应式布局**：移动端、平板、桌面端完美适配
+
+### 主要页面
+
+1. **首页**：展示平台特色、热门套餐
+2. **交易大厅**：FSD 权限交易列表（出售/求购/出租）
+3. **个人中心**：用户信息、交易记录
+4. **设置页面**：账户设置、安全设置
+
+---
+
+## 🔐 安全特性
+
+- ✅ Supabase Row Level Security (RLS) 数据隔离
+- ✅ JWT Token 认证
+- ✅ HTTPS 加密传输
+- ✅ 密码哈希存储
+- ✅ 担保交易机制
+
+---
+
+## 📝 开发规范
+
+### 代码风格
+
+- **TypeScript 严格模式**：启用 `strict: true`
+- **组件命名**：PascalCase
+- **文件命名**：PascalCase (组件) / kebab-case (路由)
+- **CSS 规范**：优先使用 Tailwind 原子类
+
+### Git 提交规范
+
+```
+feat: 新功能
+fix: 修复 bug
+docs: 文档更新
+style: 代码格式调整
+refactor: 重构
+test: 测试相关
+chore: 构建/工具链相关
+```
+
+---
+
+## 🛣️ 开发路线图
+
+### Phase 1: MVP（当前阶段）
+- [x] 首页设计
+- [x] 交易大厅（模拟数据）
+- [x] 用户认证（登录/注册）
+- [ ] 交易详情页
+
+### Phase 2: 核心功能
+- [ ] 真实交易数据接入
+- [ ] 发布交易功能
+- [ ] 担保交易流程
+- [ ] 支付集成
+
+### Phase 3: 优化迭代
+- [ ] 用户评价系统
+- [ ] 消息通知
+- [ ] 交易数据统计
+- [ ] 移动端 App
+
+---
+
+## 🤝 贡献指南
+
+欢迎贡献代码！请遵循以下流程：
+
+1. Fork 本仓库
+2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交改动 (`git commit -m 'feat: Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 提交 Pull Request
+
+---
+
+## 📄 开源协议
+
+本项目采用 MIT 协议开源。
+
+---
+
+## 📧 联系方式
+
+- **项目主页**：[GitHub](https://github.com/your-username/falai-app)
+- **问题反馈**：[Issues](https://github.com/your-username/falai-app/issues)
+- **邮箱**：support@fsd-trading.com
+
+---
+
+**© 2025 特斯拉 FSD 权限交易平台. All rights reserved.**

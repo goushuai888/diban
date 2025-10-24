@@ -5,7 +5,7 @@ import Navbar from '@/components/Navbar.vue';
 <template>
   <div class="min-h-screen flex flex-col">
     <Navbar />
-    <div class="flex-1">
+    <div class="flex-1 overflow-y-auto">
       <slot></slot>
     </div>
   </div>
